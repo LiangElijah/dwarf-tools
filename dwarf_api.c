@@ -351,13 +351,47 @@ int dwarf_loc_info(Dwarf_Debug dbg, Dwarf_Die die, int32_t *operation, Dwarf_Err
 
     if(i == attrcount)
     {
-        printf("[%s-%s:%d] No locexpr.\n", __FILE__, __func__, __LINE__);
-        res = DW_DLV_NO_ENTRY;
-        goto DEALLOC;
+        Dwarf_Half version = 0;
+        Dwarf_Bool is_info = 0;
+        Dwarf_Bool is_dwo = 0;
+        Dwarf_Half offset_size = 0;
+        Dwarf_Half address_size = 0;
+        Dwarf_Half extension_size = 0;
+        Dwarf_Sig8 *signature = NULL;
+        Dwarf_Off  offset_of_length = 0;
+        Dwarf_Unsigned  total_byte_length = 0;
+
+        res = ASSERT2(
+            dwarf_cu_header_basics,
+            die,
+            &version,
+            &is_info,
+            &is_dwo,
+            &offset_size,
+            &address_size,
+            &extension_size,
+            &signature,
+            &offset_of_length,
+            &total_byte_length,
+            error);
+        if(res != DW_DLV_OK) goto DEALLOC;
+
+        res = ASSERT2(dwarf_die_is_tag, dbg, die, DW_TAG_member, error);
+        if((res != DW_DLV_OK) && (res != DW_DLV_NOT_CMP)) goto DEALLOC;
+
+        if((res == DW_DLV_OK) && (version == 4) && (is_info == FALSE)) {
+            operation[0] = DW_OP_plus_uconst;
+            operation[1] = 0;
+            operation[2] = 0;
+            operation[3] = 0;
+        } else {
+            printf("[%s-%s:%d] No locexpr.\n", __FILE__, __func__, __LINE__);
+            res = DW_DLV_NO_ENTRY;
+        }
+    } else {
+        res = ASSERT2(dwarf_attr_loc, dbg, attrbuf[i], operation, error);
     }
-    
-    res = ASSERT2(dwarf_attr_loc, dbg, attrbuf[i], operation, error);
-    
+
 DEALLOC:
     dwarf_dealloc_list(dbg, attrbuf, attrcount);
 RET:
