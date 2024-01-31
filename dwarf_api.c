@@ -223,6 +223,22 @@ int dwarf_attr_is_locexpr(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Attribute attr, 
 }
 
 /* COMMON API */
+int dwarf_is_elf(const char *file_path)
+{
+    Dwarf_Debug dbg = NULL;
+    Dwarf_Error error = NULL;
+
+    int res = dwarf_init_path(file_path, NULL, 0, DW_GROUPNUMBER_ANY, NULL, NULL, &dbg, &error);
+    if(res == DW_DLV_ERROR) {
+        printf("[%s-%s:%d] dwarf_init_path() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(error));
+    }
+    if(res == DW_DLV_OK) {
+        dwarf_finish(dbg);
+    }
+
+    return res;
+}
+
 void dwarf_dealloc_list(Dwarf_Debug dbg, Dwarf_Attribute *attrbuf, Dwarf_Signed attrcount)
 {
     for (int i = 0; i < attrcount; i++) {

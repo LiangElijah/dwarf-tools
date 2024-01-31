@@ -160,7 +160,13 @@ int Vaddr_Dwarf::analyze(Vaddr_String *str)
     int res = 0;
     
     // 1、创建 dwarf 对象
-    res = ASSERT(dwarf_object_init_b, &dw_interface, NULL, NULL, DW_GROUPNUMBER_ANY, &dbg, &error);
+    if(file->file_type == FILE_COFF) {
+        res = ASSERT(dwarf_object_init_b, &dw_interface, NULL, NULL, DW_GROUPNUMBER_ANY, &dbg, &error);
+    } else if(file->file_type == FILE_ELF) {
+        res = ASSERT(dwarf_init_path, file->file_path, NULL, 0, DW_GROUPNUMBER_ANY, NULL, NULL, &dbg, &error);
+    } else {
+        printf("[%s-%s:%d] Unsupported File Type (%d).\n", __FILE__, __func__, __LINE__, file->file_type);
+    }
     if(res != DW_DLV_OK) goto RET;
 
     // 2、查找 variable 变量
@@ -261,7 +267,11 @@ TYPE:
 VAR:
     if(var_die != NULL) dwarf_dealloc_die(var_die);
 FIN:
-    dwarf_object_finish(dbg);
+    if(file->file_type == FILE_COFF) {
+        dwarf_object_finish(dbg);
+    } else if(file->file_type == FILE_ELF) {
+        dwarf_finish(dbg);
+    }
 RET:
     return res;
 }
@@ -299,8 +309,13 @@ int Vaddr_Dwarf::find_variable(Dwarf_Debug dbg, const char *name, Dwarf_Die *die
         res = ASSERT2(dwarf_next_cu_die, dbg, &cu_die, error);
         if(res != DW_DLV_OK) goto RET;
 
-        res = ASSERT2(dwarf_child, cu_die, &var_die, error);
-        if(res != DW_DLV_OK) goto CU;
+        res = dwarf_child(cu_die, &var_die, error);
+        if(res == DW_DLV_ERROR) {
+            printf("[%s-%s:%d] dwarf_child() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+            goto CU;
+        } else if (res == DW_DLV_NO_ENTRY){
+            continue;
+        }
 
         res = ASSERT2(search_tag, dbg, var_die, DW_TAG_variable, name, error);
         if(res == DW_DLV_OK) {
@@ -310,7 +325,7 @@ int Vaddr_Dwarf::find_variable(Dwarf_Debug dbg, const char *name, Dwarf_Die *die
                 goto VAR;
             } else if ((res == DW_DLV_NO_ENTRY) || (flag == 0)) {
                 dwarf_dealloc_die(cu_die);
-                break;
+                goto OK;
             }
         }
         else if(res != DW_DLV_NOT_CMP) 
@@ -320,8 +335,13 @@ int Vaddr_Dwarf::find_variable(Dwarf_Debug dbg, const char *name, Dwarf_Die *die
 
         while(1)
         {
-            res = ASSERT2(dwarf_siblingof_b, dbg, var_die, TRUE, &next_die, error);
-            if(res != DW_DLV_OK) goto VAR;
+            res = dwarf_siblingof_b(dbg, var_die, TRUE, &next_die, error);
+            if(res == DW_DLV_ERROR) {
+                printf("[%s-%s:%d] dwarf_siblingof_b() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto VAR;
+            } else if (res == DW_DLV_NO_ENTRY){
+                break;
+            }
 
             dwarf_dealloc_die(var_die);
             var_die = next_die;
@@ -335,7 +355,7 @@ int Vaddr_Dwarf::find_variable(Dwarf_Debug dbg, const char *name, Dwarf_Die *die
                     goto VAR;
                 } else if ((res == DW_DLV_NO_ENTRY) || (flag == 0)) {
                     dwarf_dealloc_die(cu_die);
-                    break;
+                    goto OK;
                 }
             }
             else if(res != DW_DLV_NOT_CMP) 
@@ -344,12 +364,11 @@ int Vaddr_Dwarf::find_variable(Dwarf_Debug dbg, const char *name, Dwarf_Die *die
             }
         }
 
-        if((res == DW_DLV_NO_ENTRY) || (flag == 0)) break;
-
         dwarf_dealloc_die(cu_die);
         dwarf_dealloc_die(var_die);
     }
 
+OK:
     *die = var_die;
     return DW_DLV_OK;
 

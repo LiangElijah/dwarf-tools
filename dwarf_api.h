@@ -48,6 +48,7 @@ int dwarf_attr_loc(Dwarf_Debug dbg, Dwarf_Attribute attr, int32_t *operation, Dw
 /* ATTR API 2 */
 int dwarf_attr_is_locexpr(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Attribute attr, Dwarf_Error *error);
 /* COMMON API */
+int dwarf_is_elf(const char *file_path);
 void dwarf_dealloc_list(Dwarf_Debug dbg, Dwarf_Attribute *attrbuf, Dwarf_Signed attrcount);
 int dwarf_next_cu_die(Dwarf_Debug dbg, Dwarf_Die *cu_die, Dwarf_Error *error);
 int dwarf_array_info(Dwarf_Debug dbg, Dwarf_Die die, uint32_t *array, uint32_t *num, Dwarf_Error *error);

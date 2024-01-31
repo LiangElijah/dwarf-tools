@@ -13,6 +13,11 @@ extern "C" {
     #include "dwarf_api.h"
 }
 
+enum {
+    FILE_COFF = 0,
+    FILE_ELF
+};
+
 // 文件头
 typedef struct st_filehdr {
     uint16_t u16Version;        // 版本
@@ -89,10 +94,10 @@ private:
     char is_ready = 0;
 
     char file_path[256] = {0};
-    char file_type = 0;
+    char file_type = FILE_COFF;
     uint32_t file_size;
 
-    uint8_t byte_order = DW_END_little;
+    uint8_t byte_order = DW_END_default;
     uint8_t length_size = 4;
     uint8_t pointer_size = 4;
 
@@ -106,6 +111,7 @@ public:
 
     int extract(const char *file_path);
     int ready();
+    void release();
     void print();
 };
 

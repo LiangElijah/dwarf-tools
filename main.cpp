@@ -77,27 +77,27 @@ int main(int argc, char *argv[])
     /* Do Something Here */
     // 1、分解变量字符串
     Vaddr_String str(cvariant);
-
+    if(str.ready() != 1) return -1;
     str.print_dms();
 
     // 2、提取文件的 dwarf 信息
     Vaddr_File file(cinput);
-
+    if(file.ready() != 1) return -1;
     file.print();
 
     // 3、创建 dwarf 解析器
     Vaddr_Dwarf dwarf(&file);
-
+    if(dwarf.ready() != 1) return -1;
     dwarf.print();
 
     // 4、计算变量信息
     dwarf.analyze(&str);
-
+    if(str.analyzed() != 1) return -1;
     str.print_res_dms();
 
     // 4、计算变量地址
     str.calculate();
-
+    if(str.caled() != 1) return -1;
     str.print_cal();
 
     return 0;
