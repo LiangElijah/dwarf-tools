@@ -10,9 +10,12 @@
 extern "C" {
    #include <unistd.h> // getopt、access
 
-   #include "vaddr_string.h"
-   #include "vaddr_file.h"
-   #include "vaddr_dwarf.h"
+   #include "dwarf_die.h"
+   #include "dwarf_method.h"
+   #include "dwarf_elf.h"
+   #include "dwarf_coff.h"
+   #include "dwarf_str.h"
+   #include "dwarf_addr.h"
 }
 
 #endif /* __MAIN_H__ */

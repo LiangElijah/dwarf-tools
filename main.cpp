@@ -13,6 +13,14 @@ int main(int argc, char *argv[])
     char *cinput = NULL;
     char *cvariant = NULL;
 
+    Dwarf_Debug dbg = NULL;
+    Dwarf_Error error = NULL;
+    Dwarf_Obj_Access_Data *dw_accessData = NULL;
+    st_dieNode_t *entry = NULL;
+    st_str_t str = {0};
+    st_addr_t addr = {0};
+    int res = 0;
+
     /*
      * 1、"c:"  必须有参数
      * 2、"c::" 参数可有可无，有参数不能有空格，必须写成 -cxxx 形式
@@ -75,30 +83,31 @@ int main(int argc, char *argv[])
     printf("Argument Got: -i %s -v %s\n\n", cinput, cvariant);
 
     /* Do Something Here */
-    // 1、分解变量字符串
-    Vaddr_String str(cvariant);
-    if(str.ready() != 1) return -1;
-    str.print_dms();
+    res = dwarf_elf_init(cinput, &dbg, &error);
+    if(res != DW_DLV_OK)
+    {
+        res = dwarf_coff_init(cinput, &dw_accessData, &dbg, &error);
+        if(res != DW_DLV_OK)
+        {
+            printf("file format err\r\n");
+            return 0;
+        }
+    }
 
-    // 2、提取文件的 dwarf 信息
-    Vaddr_File file(cinput);
-    if(file.ready() != 1) return -1;
-    file.print();
+    res = dwarf_die_init(dbg, &entry, &error);
+    // if((res == DW_DLV_OK) && (entry != NULL))
+    //     dwarf_print_die(dbg, entry, &error);
+    // else printf("entry err\r\n");
 
-    // 3、创建 dwarf 解析器
-    Vaddr_Dwarf dwarf(&file);
-    if(dwarf.ready() != 1) return -1;
-    dwarf.print();
+    res = dwarf_str_init(cvariant, &str);
+    // if(res == 0)
+    //     dwarf_print_str(&str);
+    // else printf("str err\r\n");
 
-    // 4、计算变量信息
-    dwarf.analyze(&str);
-    if(str.analyzed() != 1) return -1;
-    str.print_res_dms();
-
-    // 4、计算变量地址
-    str.calculate();
-    if(str.caled() != 1) return -1;
-    str.print_cal();
+    res = dwarf_addr_cal(entry, &str, &addr);
+    if(res == 0)
+        dwarf_print_addr(&addr);
+    else printf("addr err\r\n");
 
     return 0;
 }

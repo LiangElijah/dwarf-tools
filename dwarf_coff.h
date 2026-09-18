@@ -1,22 +1,18 @@
-#ifndef __VADDR_FILE_H__
-#define __VADDR_FILE_H__
+#ifndef __DWARF_COFF_H__
+#define __DWARF_COFF_H__
 
-#include <cstdio>  // printf ...
-#include <cstdint> // uint32_t ...
-#include <cstdlib> // malloc
-#include <cerrno>  // errno
-#include <cstring> // strerror
+#include <stdio.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 
-extern "C" {
-    #include <unistd.h> // getopt、access
+#include "dwarf.h"
+#include "libdwarf.h"
+#include "libdwarf_private.h"
+#include "config.h"
 
-    #include "dwarf_api.h"
-}
-
-enum {
-    FILE_COFF = 0,
-    FILE_ELF
-};
+#include "dwarf_method.h"
 
 // 文件头
 typedef struct st_filehdr {
@@ -80,39 +76,10 @@ typedef struct st_syment {
   int8_t   i8NumAux;            // 符号附加记录数
 } __attribute__((packed)) st_syment_t;
 
-typedef struct st_sem {
-    char name[32];
-    uint32_t size;
-    void *data;
-} st_sem_t;
+int dwarf_coff_init(const char *path,
+    Dwarf_Obj_Access_Data **dw_accessData_p, 
+    Dwarf_Debug *ret_dbg, 
+    Dwarf_Error *error);
+void dwarf_coff_deinit(Dwarf_Obj_Access_Data **dw_accessData_p);
 
-class Vaddr_Dwarf;
-class Vaddr_File
-{
-    friend class Vaddr_Dwarf;
-private:
-    char is_ready = 0;
-
-    char file_path[256] = {0};
-    char file_type = FILE_COFF;
-    uint32_t file_size;
-
-    uint8_t byte_order = DW_END_default;
-    uint8_t length_size = 4;
-    uint8_t pointer_size = 4;
-
-    st_sem_t sems[32] = {0};
-    char semnum = 0;
-  
-public:
-    Vaddr_File(const char *file_path);
-    Vaddr_File();
-    ~Vaddr_File();
-
-    int extract(const char *file_path);
-    int ready();
-    void release();
-    void print();
-};
-
-#endif /* __VADDR_FILE_H__ */
+#endif /* __DWARF_COFF_H__ */
