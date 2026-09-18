@@ -40,6 +40,8 @@ int dwarf_die_string(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attrnum, char **
 int dwarf_die_flag(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attrnum, Dwarf_Bool *ret_flag, Dwarf_Error *error);
 int dwarf_die_type(Dwarf_Debug dbg, Dwarf_Die main_die, Dwarf_Die *type_die, Dwarf_Error *error);
 int dwarf_die_basic_type(Dwarf_Debug dbg, Dwarf_Die main_die, Dwarf_Die *type_die, Dwarf_Error *error);
+int dwarf_die_basic_type2(Dwarf_Debug dbg, Dwarf_Die main_die, Dwarf_Die *type_die, 
+    uint32_t *array, uint32_t *num, Dwarf_Unsigned *ret_size, Dwarf_Error *error);
 /* DIE API 2 */
 int dwarf_die_is_tag(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half tag, Dwarf_Error *error);
 int dwarf_die_is_array(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Error *error);

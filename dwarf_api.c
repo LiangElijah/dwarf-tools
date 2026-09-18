@@ -95,6 +95,68 @@ int dwarf_die_basic_type(Dwarf_Debug dbg, Dwarf_Die main_die, Dwarf_Die *type_di
     return DW_DLV_OK;
 }
 
+int dwarf_die_basic_type2(Dwarf_Debug dbg, Dwarf_Die main_die, Dwarf_Die *type_die, 
+    uint32_t *array, uint32_t *num, Dwarf_Unsigned *ret_size, Dwarf_Error *error)
+{
+    Dwarf_Die type_die_tmp = NULL;
+    Dwarf_Die type_die_tmp2 = NULL;
+
+    int res = 0;
+
+    // 1、获取 var/mem 类型
+    res = ASSERT2(dwarf_die_type, dbg, main_die, &type_die_tmp, error);
+    if(res != DW_DLV_OK) goto RET;
+
+    // 2、判断 var/mem 是否数组
+    res = ASSERT2(dwarf_die_is_tag, dbg, type_die_tmp, DW_TAG_array_type, error);
+    if(res == DW_DLV_OK) {
+        // 2.1、获取 member 数组维度
+        res = ASSERT2(dwarf_array_info, dbg, main_die, array, num, error);
+        if(res != DW_DLV_OK) goto TYPE;
+    } else if(res != DW_DLV_NOT_CMP) {
+        goto TYPE;
+    }
+
+    while(1) {
+        res = dwarf_die_type(dbg, type_die_tmp, &type_die_tmp2, error);
+        if(res == DW_DLV_ERROR) {
+            printf("[%s-%s:%d] dwarf_die_type() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+            goto TYPE;
+        }
+        else if(res == DW_DLV_NO_ENTRY) break;
+
+        dwarf_dealloc_die(type_die_tmp);
+        type_die_tmp = type_die_tmp2;
+    }
+
+    // 2.2、获取 member 类型大小
+    res = dwarf_bytesize(type_die_tmp, ret_size, error);
+    if(res == DW_DLV_ERROR) 
+    {
+        printf("[%s-%s:%d] dwarf_bytesize() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+        goto TYPE;
+    }
+    else if(res == DW_DLV_NO_ENTRY)
+    {
+        *ret_size = 0;
+    }
+
+    printf("type array: ");
+    for(int i = 0; i < (*num); i++)
+    {
+        printf("%u ", array[i]);
+    }
+    printf("bytesize:%u\r\n", *ret_size);
+
+    *type_die = type_die_tmp;
+    return DW_DLV_OK;
+
+TYPE:
+    dwarf_dealloc_die(type_die_tmp);
+RET:
+    return res;
+}
+
 /* DIE API 2 */
 int dwarf_die_is_tag(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half tag, Dwarf_Error *error)
 {
@@ -262,8 +324,7 @@ int dwarf_next_cu_die(Dwarf_Debug dbg, Dwarf_Die *cu_die, Dwarf_Error *error)
 
     int res = 0;
     
-    res = ASSERT2(
-        dwarf_next_cu_header_d,
+    res = dwarf_next_cu_header_d(
         dbg,
         TRUE,
         &cu_header_length,  // 编译单元大小
@@ -278,9 +339,21 @@ int dwarf_next_cu_die(Dwarf_Debug dbg, Dwarf_Die *cu_die, Dwarf_Error *error)
         &header_cu_type,    // 编译单元类型
         error
     );
-    if(res != DW_DLV_OK) return res;
+    if(res == DW_DLV_ERROR) {
+        printf("[%s-%s:%d] dwarf_next_cu_header_d() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+        return res;
+    } else if (res == DW_DLV_NO_ENTRY){
+        return res;
+    }
 
-    res = ASSERT2(dwarf_siblingof_b, dbg, NULL, TRUE, cu_die, error);
+    res = dwarf_siblingof_b(dbg, NULL, TRUE, cu_die, error);
+    if(res == DW_DLV_ERROR) {
+        printf("[%s-%s:%d] dwarf_siblingof_b() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+        return res;
+    } else if (res == DW_DLV_NO_ENTRY){
+        return res;
+    }
+
     return res;
 }
 
