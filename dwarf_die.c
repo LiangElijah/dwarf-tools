@@ -5,7 +5,13 @@ static char dw_diename[] = "null";
 int dwarf_next_cu_die(Dwarf_Debug dw_dbg, 
     Dwarf_Die *cu_die, 
     Dwarf_Error *error) {
-    Dwarf_Bool is_info = TRUE; /* our data is not DWARF4 .debug_types. */
+    /*
+     * is_info = TRUE: 指针在 .debug_info 段中向后移动, 读取下一个 CU Header, 
+     *  此时返回的 Header 结构描述该源码文件的编译信息(变量、函数定义、代码位置等全量信息).
+     * is_info = FALSE: 指针在 .debug_types 段中向后移动, 读取下一个 TU Header, 
+     *  此时返回的 Header 结构描述为了跨 CU 去重而抽离的类型信息(结构体、类等).
+    */
+    Dwarf_Bool is_info = TRUE;
     Dwarf_Unsigned cu_header_length = 0;
     Dwarf_Half     version_stamp = 0;
     Dwarf_Off      abbrev_offset = 0;
@@ -160,59 +166,34 @@ RET:
 int dwarf_get_die_type(Dwarf_Debug dw_dbg, 
     Dwarf_Die die, 
     Dwarf_Die *type_die, 
-    Dwarf_Error *error)
-{
+    Dwarf_Error *error) {
     Dwarf_Off offset = 0;
     Dwarf_Bool is_info = 0;
 
-    int res = 0;
-
-    res = dwarf_dietype_offset(die, &offset, &is_info, error);
+    int res = dwarf_dietype_offset(die, &offset, &is_info, error);
     if(res != DW_DLV_OK) return res;
     
     return dwarf_offdie_b(dw_dbg, offset, is_info, type_die, error);
 }
 
-int dwarf_die_udata(Dwarf_Debug dw_dbg, 
-    Dwarf_Die die, 
-    Dwarf_Half attrnum, 
-    Dwarf_Unsigned *ret_udata, 
-    Dwarf_Error *error)
-{
-    Dwarf_Attribute ret_attr = NULL;
-    int res = 0;
-    
-    res = dwarf_attr(die, attrnum, &ret_attr, error);
-    if (res != DW_DLV_OK) return res;
-
-    res = dwarf_formudata(ret_attr, ret_udata, error);
-    dwarf_dealloc(dw_dbg, ret_attr, DW_DLA_ATTR);
-    return res;
-}
-
 int dwarf_get_array_info(Dwarf_Debug dw_dbg, 
     Dwarf_Die die, 
-    uint32_t *array, 
-    uint32_t *num, 
-    Dwarf_Error *error)
-{
-    Dwarf_Unsigned ret_udata = 0;
+    uint32_t *dimension, 
+    uint32_t *dimensionNum, 
+    Dwarf_Error *error) {
     Dwarf_Die last_die = NULL;
     Dwarf_Die next_die = NULL;
-
+    Dwarf_Attribute ret_attr = NULL;
+    Dwarf_Unsigned ret_udata = 0;
     Dwarf_Half ret_tag = 0;
     int res = 0;
-    (*num) = 0;
+    (*dimensionNum) = 0;
 
-    for(int i = 0;;i++)
-    {
-        if(i == 0)
-        {
+    for (int i = 0; ; i++) {
+        if(i == 0) {
             res = dwarf_child(die, &last_die, error);
             if(res != DW_DLV_OK) goto RET;
-        }
-        else
-        {
+        } else {
             res = dwarf_siblingof_b(dw_dbg, last_die, TRUE, &next_die, error);
             if(res == DW_DLV_ERROR) {
                 goto LAST;
@@ -228,11 +209,14 @@ int dwarf_get_array_info(Dwarf_Debug dw_dbg,
         dwarf_tag(last_die, &ret_tag, error);
         if(ret_tag == DW_TAG_subrange_type)
         {
-            res = dwarf_die_udata(dw_dbg, last_die, DW_AT_upper_bound, &ret_udata, error);
+            res = dwarf_attr(last_die, DW_AT_upper_bound, &ret_attr, error);
             if(res != DW_DLV_OK) goto LAST;
 
-            array[(*num)] = ret_udata + 1;
-            (*num)++;
+            res = dwarf_formudata(ret_attr, &ret_udata, error);
+            if(res != DW_DLV_OK) goto LAST;
+
+            dimension[(*dimensionNum)] = ret_udata + 1;
+            (*dimensionNum)++;
         } else goto LAST;
     }
 
@@ -242,84 +226,82 @@ RET:
     return res;
 }
 
+int dwarf_get_routine_info(Dwarf_Debug dw_dbg, 
+    Dwarf_Die die, 
+    Dwarf_Error *error) {
+
+}
+
 int dwarf_get_die_info(Dwarf_Debug dw_dbg, 
     Dwarf_Die die, 
     Dwarf_Die *type_die, 
-    uint32_t *array, 
-    uint32_t *num, 
+    uint32_t *dimension, 
+    uint32_t *dimensionNum, 
     Dwarf_Unsigned *ret_size, 
-    Dwarf_Error *error)
-{
-    Dwarf_Die type_die_tmp = NULL;
-    Dwarf_Die type_die_tmp2 = NULL;
-
+    Dwarf_Error *error) {
+    Dwarf_Die last_die = NULL;
+    Dwarf_Die next_die = NULL;
     Dwarf_Half ret_tag = 0;
     int res = 0;
-    *num = 0;
-    memset(array, 0, sizeof(uint32_t)*4);
+    (*type_die) = NULL;
+    (*ret_size) = 0;
+    (*dimensionNum) = 0;
+    memset(dimension, 0, sizeof(uint32_t)*4);
 
-    // 1、获取 var/mem 类型
-    res = dwarf_get_die_type(dw_dbg, die, &type_die_tmp, error);
-    if(res != DW_DLV_OK) goto RET;
+    for(int i = 0; ; i++) {
+        // 1、获取 var/mem 基础类型
+        if(i == 0) {
+            res = dwarf_get_die_type(dw_dbg, die, &last_die, error);
+            if (res != DW_DLV_OK) goto RET;
+        } else {
+            res = dwarf_get_die_type(dw_dbg, last_die, &next_die, error);
+            if (res == DW_DLV_ERROR) goto TYPE;
+            else if (res == DW_DLV_NO_ENTRY) break;
 
-    // 2、判断 var/mem 是否数组
-    dwarf_tag(type_die_tmp, &ret_tag, error);
-    if(ret_tag == DW_TAG_array_type)
-    {
-        // 2.1、获取 var/mem 数组维度
-        res = dwarf_get_array_info(dw_dbg, type_die_tmp, array, num, error);
-        if(res != DW_DLV_OK) goto TYPE;
-    }
+            dwarf_dealloc_die(last_die);
+            last_die = next_die;
+        }
 
-    // 2.2、获取 var/mem 基础类型
-    while(1) {
-        res = dwarf_get_die_type(dw_dbg, type_die_tmp, &type_die_tmp2, error);
-        if(res == DW_DLV_ERROR) goto TYPE;
-        else if(res == DW_DLV_NO_ENTRY) break;
+        // 2、判断 var/mem 类型特殊处理
+        dwarf_tag(last_die, &ret_tag, error);
+        if (ret_tag == DW_TAG_array_type) {
+            // 2.1、获取 var/mem 数组维度
+            res = dwarf_get_array_info(dw_dbg, last_die, array, num, error);
+            if(res != DW_DLV_OK) goto TYPE;
+        } else if (ret_tag == DW_TAG_pointer_type) {
 
-        dwarf_dealloc_die(type_die_tmp);
-        type_die_tmp = type_die_tmp2;
+        } else if (ret_tag == DW_TAG_reference_type) {
+        
+        } else if (ret_tag == DW_TAG_typedef) {
+        
+        } else if (ret_tag == DW_TAG_subroutine_type) {
+            /*
+            * DW_AT_type:返回值
+            * DW_TAG_formal_parameter:参数
+            */
+            res = dwarf_get_routine_info();
+            if(res != DW_DLV_OK) goto TYPE;
+        }  else if ((ret_tag == DW_TAG_class_type) || 
+            (ret_tag == DW_TAG_structure_type) ||
+            (ret_tag == DW_TAG_union_type)) {
+            /*
+            * DW_TAG_member:成员
+            */
+        }
     }
 
     // 2.3、获取 var/mem 类型大小
-    res = dwarf_bytesize(type_die_tmp, ret_size, error);
-    if(res == DW_DLV_ERROR) goto TYPE;
-    else if(res == DW_DLV_NO_ENTRY) *ret_size = 0;
+    res = dwarf_bytesize(last_die, ret_size, error);
+    if (res == DW_DLV_ERROR) goto TYPE;
+    else if (res == DW_DLV_NO_ENTRY) *ret_size = 0;
 
-    *type_die = type_die_tmp;
+    (*type_die) = last_die;
     return DW_DLV_OK;
 
 TYPE:
     dwarf_dealloc_die(type_die_tmp);
 RET:
     return res;
-}
-
-int dwarf_get_die_bit(Dwarf_Debug dw_dbg, 
-    Dwarf_Die die, 
-    Dwarf_Unsigned *ret_bitsize,
-    Dwarf_Unsigned *ret_bitoffset,
-    Dwarf_Error *error)
-{
-    Dwarf_Half attribute = 0;
-
-    int res = 0;
-
-    // 1、获取 var/mem bitsize信息
-    res = dwarf_bitsize(die, ret_bitsize, error);
-    if(res == DW_DLV_ERROR) return res;
-    else if (res == DW_DLV_NO_ENTRY) {
-        *ret_bitsize = 0;
-    }
-
-    // 2、获取 var/mem bitoffset信息
-    res = dwarf_bitoffset(die, &attribute, ret_bitoffset, error);
-    if(res == DW_DLV_ERROR) return res;
-    else if (res == DW_DLV_NO_ENTRY) {
-        *ret_bitoffset = 0;
-    }
-
-    return DW_DLV_OK;
 }
 
 int dwarf_get_type_info(Dwarf_Debug dw_dbg, 
@@ -385,10 +367,18 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
             //     mem_node->un.mem.operation[2], mem_node->un.mem.operation[3]);
 
             // 1.6、获取mem_die的位
-            res = dwarf_get_die_bit(dw_dbg, mem_die, &mem_node->un.mem.bit_size, &mem_node->un.mem.bit_offset, error);
-            if(res != DW_DLV_OK) {
-                printf("[%s-%s:%d] dwarf_get_die_bit() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
-                goto MEM;
+            // 1.6.1、获取 var/mem bitsize信息
+            res = dwarf_bitsize(mem_die, &mem_node->un.mem.bit_size, error);
+            if (res == DW_DLV_ERROR) goto MEM;
+            else if (res == DW_DLV_NO_ENTRY) {
+                mem_node->un.mem.bit_size = 0;
+            }
+            // 1.6.2、获取 var/mem bitoffset信息
+            Dwarf_Half attrnum = 0;
+            res = dwarf_bitoffset(mem_die, &attrnum, &mem_node->un.mem.bit_offset, error);
+            if (res == DW_DLV_ERROR) goto MEM;
+            else if (res == DW_DLV_NO_ENTRY) {
+                mem_node->un.mem.bit_offset = 0;
             }
             // printf("bit:%d %d\r\n", mem_node->un.mem.bit_size, mem_node->un.mem.bit_offset);
 
@@ -494,6 +484,7 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
     st_dieNode_t *var_entry = NULL;
     st_dieNode_t *type_entry = NULL;
     int res = DW_DLV_OK;
+	(*entry) = NULL; 
 
     while(1) {
         // 1、获取一个cu
@@ -544,7 +535,7 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
             } else {
                 Dwarf_Die var_die_tmp = NULL;
 
-                res = dwarf_siblingof_b(dw_dbg, var_die, TRUE, &var_die_tmp, error);
+                res = dwarf_siblingof_c(var_die, &var_die_tmp, error);
                 if (res == DW_DLV_ERROR) {
                     printf("[%s-%s:%d] dwarf_siblingof_b() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                     goto VAR;
@@ -714,7 +705,7 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
         dwarf_dealloc_die(cu_die);
     }
 
-    *entry = cu_entry;
+    (*entry) = cu_entry;
     return DW_DLV_OK;
 
 TYPE:
