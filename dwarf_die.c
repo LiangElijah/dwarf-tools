@@ -2,6 +2,38 @@
 
 static char dw_diename[] = "null";
 
+int dwarf_get_machine(Dwarf_Debug dw_dbg, 
+    Dwarf_Unsigned *machine, 
+    Dwarf_Error *error) {
+    Dwarf_Small    dw_ftype = 0;
+    Dwarf_Small    dw_obj_pointersize = 0;
+    Dwarf_Bool     dw_obj_is_big_endian = 0;
+    Dwarf_Unsigned dw_obj_machine = 0;
+    Dwarf_Unsigned dw_obj_flags = 0;
+    Dwarf_Small    dw_path_source = 0;
+    Dwarf_Unsigned dw_ub_offset = 0;
+    Dwarf_Unsigned dw_ub_count = 0;
+    Dwarf_Unsigned dw_ub_index = 0;
+    Dwarf_Unsigned dw_comdat_groupnumber = 0;
+    
+    int res = dwarf_machine_architecture(
+        dw_dbg,
+        &dw_ftype,
+        &dw_obj_pointersize,
+        &dw_obj_is_big_endian,
+        &dw_obj_machine,
+        &dw_obj_flags,
+        &dw_path_source,
+        &dw_ub_offset,
+        &dw_ub_count,
+        &dw_ub_index,
+        &dw_comdat_groupnumber
+    );
+    if (res != DW_DLV_OK) return res;
+
+    (*machine) = dw_obj_machine; // EM_TI_C2000
+}
+
 int dwarf_next_cu_die(Dwarf_Debug dw_dbg, 
     Dwarf_Die *cu_die, 
     Dwarf_Error *error) {
@@ -198,7 +230,7 @@ int dwarf_get_array_info(Dwarf_Debug dw_dbg,
             if(res == DW_DLV_ERROR) {
                 goto LAST;
             } else if(res == DW_DLV_NO_ENTRY) {
-                if((*num) != 0) res = DW_DLV_OK;
+                if((*dimensionNum) != 0) res = DW_DLV_OK;
                 goto LAST;
             }
             
@@ -266,7 +298,7 @@ int dwarf_get_die_info(Dwarf_Debug dw_dbg,
         dwarf_tag(last_die, &ret_tag, error);
         if (ret_tag == DW_TAG_array_type) {
             // 2.1、获取 var/mem 数组维度
-            res = dwarf_get_array_info(dw_dbg, last_die, array, num, error);
+            res = dwarf_get_array_info(dw_dbg, last_die, dimension, dimensionNum, error);
             if(res != DW_DLV_OK) goto TYPE;
         } else if (ret_tag == DW_TAG_pointer_type) {
 
@@ -279,8 +311,8 @@ int dwarf_get_die_info(Dwarf_Debug dw_dbg,
             * DW_AT_type:返回值
             * DW_TAG_formal_parameter:参数
             */
-            res = dwarf_get_routine_info();
-            if(res != DW_DLV_OK) goto TYPE;
+            // res = dwarf_get_routine_info();
+            // if(res != DW_DLV_OK) goto TYPE;
         }  else if ((ret_tag == DW_TAG_class_type) || 
             (ret_tag == DW_TAG_structure_type) ||
             (ret_tag == DW_TAG_union_type)) {
@@ -299,7 +331,7 @@ int dwarf_get_die_info(Dwarf_Debug dw_dbg,
     return DW_DLV_OK;
 
 TYPE:
-    dwarf_dealloc_die(type_die_tmp);
+    dwarf_dealloc_die(last_die);
 RET:
     return res;
 }
