@@ -31,7 +31,7 @@ int dwarf_get_machine(Dwarf_Debug dw_dbg,
     );
     if (res != DW_DLV_OK) return res;
 
-    (*machine) = dw_obj_machine; // EM_TI_C2000
+    (*machine) = dw_obj_machine;
 }
 
 int dwarf_next_cu_die(Dwarf_Debug dw_dbg, 
@@ -261,25 +261,287 @@ RET:
 int dwarf_get_routine_info(Dwarf_Debug dw_dbg, 
     Dwarf_Die die, 
     Dwarf_Error *error) {
-
+    /*
+    * DW_AT_type:返回值
+    * DW_TAG_formal_parameter:参数
+    */
 }
 
-int dwarf_get_die_info(Dwarf_Debug dw_dbg, 
+int dwarf_get_member_info(Dwarf_Debug dw_dbg, 
+    Dwarf_Die die, 
+    st_dieNode_t *entry, 
+    Dwarf_Error *error) {
+    Dwarf_Die mem_die = NULL;
+    Dwarf_Die type_die = NULL;
+    Dwarf_Die next_die = NULL;
+
+    st_dieNode_t *mem_entry = NULL;
+    Dwarf_Half ret_tag = 0;
+    int res = 0;
+
+    for (int i = 0; ; i++)
+    {
+        // 1、获取一个mem
+        if (i == 0) {
+            res = dwarf_child(die, &mem_die, error);
+            if (res != DW_DLV_OK) goto RET;
+        } else {
+            res = dwarf_siblingof_b(dw_dbg, mem_die, TRUE, &next_die, error);
+            if (res == DW_DLV_ERROR) goto MEM;
+            else if (res == DW_DLV_NO_ENTRY) break;
+
+            dwarf_dealloc_die(mem_die);
+            mem_die = next_die;
+        }
+
+        // 1.1、判断是不是mem_die
+        dwarf_tag(mem_die, &ret_tag, error);
+        if(ret_tag == DW_TAG_member)
+        {
+            // 1.2、新建一个mem node
+            st_dieNode_t *mem_node = (st_dieNode_t *)malloc(sizeof(st_dieNode_t));
+
+            // 1.3、初始化一个mem node
+            RESET_LIST_HEAD(&mem_node->row);
+            INIT_LIST_HEAD(&mem_node->column);
+            mem_node->nodeType = NodeTyp_MEM;
+
+            // 1.4、获取mem_die的名字
+            res = dwarf_diename(mem_die, &mem_node->un.mem.name, error);
+            if(res == DW_DLV_ERROR) {
+                printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto MEM;
+            } else if (res == DW_DLV_NO_ENTRY){
+                mem_node->un.mem.name = dw_diename;
+            }
+            // printf("mem name:%s\r\n", mem_node->un.mem.name);
+
+            // 1.5、获取mem_die的地址
+            res = dwarf_get_die_operation(dw_dbg, mem_die, DW_AT_data_member_location, mem_node->un.mem.operation, error);
+            if(res != DW_DLV_OK) {
+                printf("[%s-%s:%d] dwarf_get_die_operation() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto MEM;
+            }
+            // printf("operation:%d %d %d %d\r\n", mem_node->un.mem.operation[0], mem_node->un.mem.operation[1], 
+            //     mem_node->un.mem.operation[2], mem_node->un.mem.operation[3]);
+
+            // 1.6、获取mem_die的位
+            // 1.6.1、获取 var/mem bitsize信息
+            res = dwarf_bitsize(mem_die, &mem_node->un.mem.bit_size, error);
+            if (res == DW_DLV_ERROR) goto MEM;
+            else if (res == DW_DLV_NO_ENTRY) {
+                mem_node->un.mem.bit_size = 0;
+            }
+            // 1.6.2、获取 var/mem bitoffset信息
+            Dwarf_Half attrnum = 0;
+            res = dwarf_bitoffset(mem_die, &attrnum, &mem_node->un.mem.bit_offset, error);
+            if (res == DW_DLV_ERROR) goto MEM;
+            else if (res == DW_DLV_NO_ENTRY) {
+                mem_node->un.mem.bit_offset = 0;
+            }
+            // printf("bit:%d %d\r\n", mem_node->un.mem.bit_size, mem_node->un.mem.bit_offset);
+
+            // 1.7、往mem list插入一个mem node
+            if(mem_entry == NULL)
+            {
+                list_add(&mem_node->row, &entry->row);
+                mem_entry = mem_node;
+            }
+            else
+            {
+                list_add_tail(&mem_node->column, &mem_entry->column);
+            }
+
+            // 2、获取mem_die的维度信息以及type
+            res = dwarf_get_die_info(dw_dbg, mem_die, &type_die, 
+                mem_node->un.mem.deep, &mem_node->un.mem.num, (Dwarf_Unsigned *)&mem_node->un.mem.size, error);
+            if(res != DW_DLV_OK) {
+                printf("[%s-%s:%d] dwarf_get_die_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto MEM;
+            }
+            //printf("dimension:%d %d %d %d %d %d\r\n", mem_node->un.mem.size, mem_node->un.mem.num,
+            //    mem_node->un.mem.deep[0], mem_node->un.mem.deep[1], mem_node->un.mem.deep[2], mem_node->un.mem.deep[3]);
+
+            // 3、遍历type链表
+            st_dieNode_t *type_node = NULL;
+            char *diename = NULL;
+            res = dwarf_diename(type_die, &diename, error);
+            if(res == DW_DLV_ERROR) {
+                printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto TYPE;
+            } else if (res == DW_DLV_NO_ENTRY){
+                diename = dw_diename;
+            }
+
+            // 4.1、遍历
+            uint8_t exists = 0;
+            if(strcmp((char *)entry->un.type.name, diename) == 0)
+            {
+                type_node = entry;
+                exists = 1;
+            }
+            else
+            {
+                list_for_each_entry(type_node, &entry->column, column) {
+                    if(strcmp((char *)type_node->un.type.name, diename) == 0)
+                    {
+                        exists = 1;
+                        break;
+                    }
+                }
+            }
+
+            // 4.1、遍历存在
+            if(exists == 1)
+            {
+                mem_node->row.next = &type_node->row;
+            }
+            // 4.1、遍历不存在
+            else
+            {
+                // 3.1、新建一个type node
+                type_node = (st_dieNode_t *)malloc(sizeof(st_dieNode_t));
+
+                // 3.2、初始化一个type node
+                RESET_LIST_HEAD(&type_node->row);
+                INIT_LIST_HEAD(&type_node->column);
+                type_node->nodeType = NodeTyp_TYPE;
+                
+                type_node->un.type.name = diename;
+                // printf("type name:%s\r\n", type_node->un.type.name);
+
+                // 3.3、往type list插入一个type node
+                list_add(&type_node->row, &mem_node->row);
+                list_add_tail(&type_node->column, &entry->column);
+
+                // 5、递归type
+                dwarf_get_type_info(dw_dbg, type_die, type_node, error);
+            }
+
+            dwarf_dealloc_die(type_die);
+        }
+    }
+
+    dwarf_dealloc_die(mem_die);
+    return DW_DLV_OK;
+
+TYPE:
+    dwarf_dealloc_die(type_die);
+MEM:
+    dwarf_dealloc_die(mem_die);
+RET:
+    return res;
+}
+
+int dwarf_get_type_info(Dwarf_Debug dw_dbg, 
     Dwarf_Die die, 
     Dwarf_Die *type_die, 
-    uint32_t *dimension, 
-    uint32_t *dimensionNum, 
-    Dwarf_Unsigned *ret_size, 
+    Dwarf_Half *type_tag,
+    st_type_t *type, 
     Dwarf_Error *error) {
     Dwarf_Die last_die = NULL;
     Dwarf_Die next_die = NULL;
     Dwarf_Half ret_tag = 0;
     int res = 0;
     (*type_die) = NULL;
-    (*ret_size) = 0;
-    (*dimensionNum) = 0;
-    memset(dimension, 0, sizeof(uint32_t)*4);
+    memset(type, 0, sizeof(st_type_t));
+    
+    for(int i = 0; ; i++) {
+        // 1、获取 var/mem 基础类型
+        if(i == 0) {
+            res = dwarf_get_die_type(dw_dbg, die, &last_die, error);
+            if (res != DW_DLV_OK) goto RET;
+        } else {
+            res = dwarf_get_die_type(dw_dbg, last_die, &next_die, error);
+            if (res != DW_DLV_OK) goto TYPE;
 
+            dwarf_dealloc_die(last_die);
+            last_die = next_die;
+        }
+
+        // 2、判断 var/mem 类型特殊处理
+        dwarf_tag(last_die, &ret_tag, error);
+        if (ret_tag == DW_TAG_array_type) {
+            // 2.1、获取 var/mem 数组维度
+            res = dwarf_get_array_info(dw_dbg, last_die, type->dimension, &type->dimensionNum, error);
+            if(res != DW_DLV_OK) goto TYPE;
+        } else if (ret_tag == DW_TAG_subroutine_type) { // no subtype
+            (*type_tag) = ret_tag;
+            break;
+        } else if ((ret_tag == DW_TAG_class_type) || // no subtype
+            (ret_tag == DW_TAG_structure_type) ||
+            (ret_tag == DW_TAG_union_type)) {
+            (*type_tag) = ret_tag;
+            break;
+        } else if (ret_tag == DW_TAG_pointer_type) {
+            type->pointer_type = TRUE;
+        } else if (ret_tag == DW_TAG_reference_type) {
+            type->reference_type = TRUE;
+        } else if (ret_tag == DW_TAG_typedef) {
+            res = dwarf_diename(last_die, &type->name_typedef, error);
+            if (res == DW_DLV_ERROR) {
+                printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto TYPE;
+            } else if (res == DW_DLV_NO_ENTRY) {
+                type->name_typedef = NULL;
+            }
+        } else if (ret_tag == DW_TAG_base_type) { // no subtype
+            res = dwarf_diename(last_die, &type->name, error);
+            if (res == DW_DLV_ERROR) {
+                printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto TYPE;
+            } else if (res == DW_DLV_NO_ENTRY) {
+                type->name = NULL;
+            }
+            break;
+        } 
+    }
+
+    // 2.3、获取 var/mem 类型大小
+    if(type->pointer_type == TRUE) {
+        Dwarf_Unsigned machine = EM_NONE;
+        res = dwarf_get_machine(dw_dbg, &machine, error);
+        if (res != DW_DLV_OK) goto TYPE;
+        if(machine == EM_TI_C2000) {
+            type->byte_size = 2;
+        } else {
+            type->byte_size = 4;
+        }
+    } else {
+        res = dwarf_bytesize(last_die, &type->byte_size, error);
+        if (res != DW_DLV_OK) goto TYPE;
+    }
+
+    (*type_die) = last_die;
+    return DW_DLV_OK;
+
+TYPE:
+    dwarf_dealloc_die(last_die);
+RET:
+    return res;
+}
+
+int dwarf_get_die_info(Dwarf_Debug dw_dbg, 
+    Dwarf_Die die, 
+    Dwarf_Error *error) {
+    Dwarf_Die type_die = NULL;
+    Dwarf_Half ret_tag = 0;
+    int res = 0;
+
+    st_type_t ret_type = {0};
+    res = dwarf_get_type_info(dw_dbg, die, &type_die, &ret_tag, &ret_type, error);
+    if (res != DW_DLV_OK) goto RET;
+
+    if (ret_tag == DW_TAG_subroutine_type) { // no subtype
+        res = dwarf_get_routine_info(dw_dbg, last_die, error);
+        if(res != DW_DLV_OK) goto TYPE;
+    } else if ((ret_tag == DW_TAG_class_type) || // no subtype
+        (ret_tag == DW_TAG_structure_type) ||
+        (ret_tag == DW_TAG_union_type)) {
+        res = dwarf_get_member_info(dw_dbg, last_die, error);
+        if(res != DW_DLV_OK) goto TYPE;
+    }
+    
     for(int i = 0; ; i++) {
         // 1、获取 var/mem 基础类型
         if(i == 0) {
@@ -300,32 +562,51 @@ int dwarf_get_die_info(Dwarf_Debug dw_dbg,
             // 2.1、获取 var/mem 数组维度
             res = dwarf_get_array_info(dw_dbg, last_die, dimension, dimensionNum, error);
             if(res != DW_DLV_OK) goto TYPE;
-        } else if (ret_tag == DW_TAG_pointer_type) {
-
-        } else if (ret_tag == DW_TAG_reference_type) {
-        
-        } else if (ret_tag == DW_TAG_typedef) {
-        
-        } else if (ret_tag == DW_TAG_subroutine_type) {
-            /*
-            * DW_AT_type:返回值
-            * DW_TAG_formal_parameter:参数
-            */
-            // res = dwarf_get_routine_info();
-            // if(res != DW_DLV_OK) goto TYPE;
-        }  else if ((ret_tag == DW_TAG_class_type) || 
+        } else if (ret_tag == DW_TAG_subroutine_type) { // no subtype
+            res = dwarf_get_routine_info(dw_dbg, last_die, error);
+            if(res != DW_DLV_OK) goto TYPE;
+        } else if ((ret_tag == DW_TAG_class_type) || // no subtype
             (ret_tag == DW_TAG_structure_type) ||
             (ret_tag == DW_TAG_union_type)) {
-            /*
-            * DW_TAG_member:成员
-            */
-        }
+            res = dwarf_get_member_info(dw_dbg, last_die, error);
+            if(res != DW_DLV_OK) goto TYPE;
+        } else if (ret_tag == DW_TAG_pointer_type) {
+            pointer_type = TRUE;
+        } else if (ret_tag == DW_TAG_reference_type) {
+            reference_type = TRUE;
+        } else if (ret_tag == DW_TAG_typedef) {
+            res = dwarf_diename(last_die, &diename_typedef, error);
+            if (res == DW_DLV_ERROR) {
+                printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto TYPE;
+            } else if (res == DW_DLV_NO_ENTRY) {
+                diename_typedef = NULL;
+            }
+        } else if (ret_tag == DW_TAG_base_type) { // no subtype
+            res = dwarf_diename(last_die, &diename, error);
+            if (res == DW_DLV_ERROR) {
+                printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                goto TYPE;
+            } else if (res == DW_DLV_NO_ENTRY) {
+                diename = NULL;
+            }
+        } 
     }
 
     // 2.3、获取 var/mem 类型大小
-    res = dwarf_bytesize(last_die, ret_size, error);
-    if (res == DW_DLV_ERROR) goto TYPE;
-    else if (res == DW_DLV_NO_ENTRY) *ret_size = 0;
+    if(pointer_type == TRUE) {
+        Dwarf_Unsigned machine = EM_NONE;
+        res = dwarf_get_machine(dw_dbg, &machine, error);
+        if(machine == EM_TI_C2000) {
+            *ret_size = 2;
+        } else {
+            *ret_size = 4;
+        }
+    } else {
+        res = dwarf_bytesize(last_die, ret_size, error);
+        if (res == DW_DLV_ERROR) goto TYPE;
+        else if (res == DW_DLV_NO_ENTRY) *ret_size = 0;
+    }
 
     (*type_die) = last_die;
     return DW_DLV_OK;
@@ -339,8 +620,7 @@ RET:
 int dwarf_get_type_info(Dwarf_Debug dw_dbg, 
     Dwarf_Die die, 
     st_dieNode_t *entry, 
-    Dwarf_Error *error)
-{
+    Dwarf_Error *error) {
     Dwarf_Die mem_die = NULL;
     Dwarf_Die type_die = NULL;
     Dwarf_Die next_die = NULL;
