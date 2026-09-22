@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "dwarf.h"
+#include "dwarf_elf_defines.h"
 #include "libdwarf.h"
 #include "libdwarf_private.h"
 #include "config.h"
@@ -19,20 +20,6 @@ typedef enum {
     NodeTyp_MEM,
     NodeTyp_SRT,
 } en_nodeType_t;
-
-typedef struct {
-    uint32_t dimension[4];
-    uint32_t dimensionNum;
-    
-    char *name;
-    char *name_typedef;
-    
-    bool pointer_type;
-    bool reference_type;
-    
-    uint64_t byte_size;
-} st_type_t;
-
 typedef struct st_dieNode {
     list_head_t row; // 行
     list_head_t column; // 列
@@ -50,7 +37,16 @@ typedef struct st_dieNode {
             uint32_t deep[4];
         } var;
         struct {
+            uint32_t dimension[4];
+            uint32_t dimensionNum;
+            
             char *name;
+            char *name_typedef;
+            
+            bool pointer_type;
+            bool reference_type;
+            
+            uint64_t byte_size;
         } type;
         struct {
             char *name;
