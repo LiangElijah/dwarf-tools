@@ -101,6 +101,17 @@ static inline void __list_add(list_head_t *new_node, list_head_t *prev_node, lis
 }
 
 /**
+ * @brief  连接两个已知的连续节点之间的节点
+ * @param  prev_node: 输出参数, 已知的前一个节点
+ * @param  next_node: 输出参数, 已知的后一个节点
+ */
+static inline void list_connect(list_head_t *new_node, list_head_t *head_node)
+{
+    new_node->prev = head_node;
+    head_node->next = new_node;
+}
+
+/**
  * @brief  插入节点(头插法)
  * @param  new_node : 输出参数, 待插入的新节点
  * @param  head_node: 输出参数, 链表头节点

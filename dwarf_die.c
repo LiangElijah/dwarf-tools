@@ -322,7 +322,11 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
                 goto BACK;
             }
 
-            list_add(&type_node->row, &srt_node->row);
+            list_connect(&type_node->row, &srt_node->row);
+
+            if(type_node->un.type.reference_type == TRUE) {
+
+            }
         }
     }
 
@@ -379,7 +383,11 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
             //printf("dimension:%d %d %d %d %d %d\r\n", mem_node->un.mem.size, mem_node->un.mem.num,
             //    mem_node->un.mem.deep[0], mem_node->un.mem.deep[1], mem_node->un.mem.deep[2], mem_node->un.mem.deep[3]);
 
-            list_add(&type_node->row, &srt_node->row);
+            list_connect(&type_node->row, &srt_node->row);
+
+            if(type_node->un.type.reference_type == TRUE) {
+
+            }
         }
     }
 
@@ -490,7 +498,11 @@ int dwarf_get_member_info(Dwarf_Debug dw_dbg,
             //printf("dimension:%d %d %d %d %d %d\r\n", mem_node->un.mem.size, mem_node->un.mem.num,
             //    mem_node->un.mem.deep[0], mem_node->un.mem.deep[1], mem_node->un.mem.deep[2], mem_node->un.mem.deep[3]);
 
-            list_add(&type_node->row, &mem_node->row);
+            list_connect(&type_node->row, &mem_node->row);
+
+            if(type_node->un.type.reference_type == TRUE) {
+
+            }
         }
     }
 
@@ -822,13 +834,17 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
                     st_dieNode_t *type_node = NULL;
                     res = dwarf_get_type_info(dw_dbg, var_die, &type_entry, &type_node, error);
                     if (res != DW_DLV_OK) {
-                        printf("[%s-%s:%d] dwarf_get_die_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+                        printf("[%s-%s:%d] dwarf_get_type_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                         goto VAR;
                     }
                     // printf("dimension:%d %d %d %d %d %d\r\n", var_node->un.var.size, var_node->un.var.num, 
                     //      var_node->un.var.deep[0], var_node->un.var.deep[1], var_node->un.var.deep[2], var_node->un.var.deep[3]);
                 
-                    list_add(&type_node->row, &var_node->row);
+                    list_connect(&type_node->row, &var_node->row);
+
+                    if(type_node->un.type.reference_type == TRUE) {
+
+                    }
                 }
             }
         }
@@ -847,9 +863,82 @@ RET:
     return res;
 }
 
-int dwarf_die_deinit(st_dieNode_t *entry) {
+int dwarf_die_deinit(Dwarf_Debug dw_dbg,
+    st_dieNode_t *entry,
+    Dwarf_Error *error) {
+    st_dieNode_t *type_entry = NULL;
     if (entry != NULL) {
-        
+        if(entry->row.next != NULL) {
+            st_dieNode_t *var_entry = list_entry(entry->row.next, st_dieNode_t, row);
+            if(var_entry->row.next != NULL) {
+                type_entry = list_entry(var_entry->row.next, st_dieNode_t, row);
+            }
+
+            st_dieNode_t *var_node = NULL;
+            list_for_each_entry(var_node, &var_entry->column, column) {
+                if((type_entry == NULL) && (var_node->row.next != NULL)) {
+                    type_entry = list_entry(var_node->row.next, st_dieNode_t, row);
+                }
+                free(var_node);
+            }
+
+            free(var_entry);
+        }
+
+        st_dieNode_t *cu_node = NULL;
+        list_for_each_entry(cu_node, &entry->column, column) {
+            if(cu_node->row.next != NULL) {
+                st_dieNode_t *var_entry = list_entry(cu_node->row.next, st_dieNode_t, row);
+                if((type_entry == NULL) && (var_entry->row.next != NULL)) {
+                    type_entry = list_entry(var_entry->row.next, st_dieNode_t, row);
+                }
+
+                st_dieNode_t *var_node = NULL;
+                list_for_each_entry(var_node, &var_entry->column, column) {
+                    if((type_entry == NULL) && (var_node->row.next != NULL)) {
+                        type_entry = list_entry(var_node->row.next, st_dieNode_t, row);
+                    }
+                    free(var_node);
+                }
+
+                free(var_entry);
+            }
+
+            free(cu_node);
+        }
+
+        free(entry);
+    }
+
+    if(type_entry != NULL) {
+        if(type_entry->row.next != NULL) {
+            st_dieNode_t *sub_entry = list_entry(type_entry->row.next, st_dieNode_t, row);
+            
+            st_dieNode_t *sub_node = NULL;
+            list_for_each_entry(sub_node, &sub_entry->column, column) {
+                free(sub_node);
+            }
+
+            free(sub_entry);
+        }
+
+        st_dieNode_t *type_node = NULL;
+        list_for_each_entry(type_node, &type_entry->column, column) {
+            if(type_node->row.next != NULL) {
+                st_dieNode_t *sub_entry = list_entry(type_node->row.next, st_dieNode_t, row);
+                
+                st_dieNode_t *sub_node = NULL;
+                list_for_each_entry(sub_node, &sub_entry->column, column) {
+                    free(sub_node);
+                }
+
+                free(sub_entry);
+            }
+
+            free(type_node);
+        }
+
+        free(type_entry);
     }
 }
 

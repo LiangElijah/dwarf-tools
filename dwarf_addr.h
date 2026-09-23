@@ -8,6 +8,17 @@
 #include "dwarf_die.h"
 #include "dwarf_str.h"
 
+typedef enum {
+    AddrStatus_OK,
+    AddrStatus_EMPTYPTR,
+    AddrStatus_NOFOUND,
+    AddrStatus_UNSUPPORT,
+    AddrStatus_NOTYPE,
+    AddrStatus_NOMEM,
+    AddrStatus_ARRAY_LESS,
+    AddrStatus_ARRAY_MORE,
+    AddrStatus_ARRAY_OUT,
+} en_addrStatus_t;
 typedef struct st_addr {
     uint64_t bit_offset;
     uint64_t bit_size;
