@@ -213,6 +213,7 @@ int dwarf_find_type_node(Dwarf_Debug dw_dbg,
             res = memcmp(&type_node->un.type, &new_node->un.type, sizeof(new_node->un.type));
             if (res == 0) {
                 (*exist_node) = type_node;
+                break;
             }
         }
     }
@@ -370,7 +371,7 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
                 st_dieNode_t **entry,
                 st_dieNode_t **node,
                 Dwarf_Error *error);
-            res = dwarf_get_type_info(dw_dbg, srt_die, entry, &type_node, error);
+            res = dwarf_get_type_info(dw_dbg, srt_die, &type_entry, &type_node, error);
             if(res != DW_DLV_OK) {
                 printf("[%s-%s:%d] dwarf_get_type_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                 goto SRT;
@@ -846,61 +847,60 @@ RET:
     return res;
 }
 
-int dwarf_die_deinit(st_dieNode_t *entry) 
-{
-    if(entry != NULL)
-    {
+int dwarf_die_deinit(st_dieNode_t *entry) {
+    if (entry != NULL) {
         
     }
 }
 
-int dwarf_print_type(Dwarf_Debug dw_dbg, 
+int dwarf_print_subroutine(Dwarf_Debug dbg, 
     st_dieNode_t *entry, 
     Dwarf_Error *error,
-    int level);
+    int level) {
+    int dwarf_print_type(Dwarf_Debug dw_dbg, 
+        st_dieNode_t *entry, 
+        Dwarf_Error *error,
+        int level);
+            
+    if (entry != NULL) {
+        for(int i = 0; i < level; i++) printf("\t");
+        printf("routine index:%d\r\n", entry->un.srt.index);
+        st_dieNode_t *type_entry = list_entry(entry->row.next, st_dieNode_t, row);
+        dwarf_print_type(dbg, type_entry, error, level + 1);
+
+        st_dieNode_t *srt_node = NULL;
+        list_for_each_entry(srt_node, &entry->column, column) {
+            for(int i = 0; i < level; i++) printf("\t");
+            printf("routine index:%d\r\n", srt_node->un.srt.index);
+            st_dieNode_t *type_entry = list_entry(srt_node->row.next, st_dieNode_t, row);
+            dwarf_print_type(dbg, type_entry, error, level + 1);
+        }
+    }
+}
 
 int dwarf_print_mem(Dwarf_Debug dbg, 
     st_dieNode_t *entry, 
     Dwarf_Error *error,
-    int level)
-{
-    if(entry != NULL)
-    {
+    int level) {
+    int dwarf_print_type(Dwarf_Debug dw_dbg, 
+        st_dieNode_t *entry, 
+        Dwarf_Error *error,
+        int level);
+            
+    if (entry != NULL) {
         for(int i = 0; i < level; i++) printf("\t");
-        printf("mem name:%s:(%d 0x%04x) <%d %d>", entry->un.mem.name,
+        printf("mem name:%s (%d 0x%04x) <%d %d>\r\n", entry->un.mem.name,
             entry->un.mem.operation[0], entry->un.mem.operation[1],
             entry->un.mem.bit_size, entry->un.mem.bit_offset);
-        if(entry->un.mem.num > 0)
-        {
-            printf(" [");
-            for(int i = 0; i < entry->un.mem.num; i++) 
-            {
-                if(i == 0) printf("%d", entry->un.mem.deep[i]);
-                else printf(" %d", entry->un.mem.deep[i]);
-            }
-            printf("]");
-        }
-        printf("\r\n");
         st_dieNode_t *type_entry = list_entry(entry->row.next, st_dieNode_t, row);
         dwarf_print_type(dbg, type_entry, error, level + 1);
 
         st_dieNode_t *mem_node = NULL;
         list_for_each_entry(mem_node, &entry->column, column) {
             for(int i = 0; i < level; i++) printf("\t");
-            printf("mem name:%s:(%d 0x%04x) <%d %d>", mem_node->un.mem.name,
+            printf("mem name:%s (%d 0x%04x) <%d %d>\r\n", mem_node->un.mem.name,
                 mem_node->un.mem.operation[0], mem_node->un.mem.operation[1],
                 mem_node->un.mem.bit_size, mem_node->un.mem.bit_offset);
-            if(mem_node->un.mem.num > 0)
-            {
-                printf(" [");
-                for(int i = 0; i < mem_node->un.mem.num; i++) 
-                {
-                    if(i == 0) printf("%d", mem_node->un.mem.deep[i]);
-                    else printf(" %d", mem_node->un.mem.deep[i]);
-                }
-                printf("]");
-            }
-            printf("\r\n");
             st_dieNode_t *type_entry = list_entry(mem_node->row.next, st_dieNode_t, row);
             dwarf_print_type(dbg, type_entry, error, level + 1);
         }
@@ -912,14 +912,30 @@ int dwarf_print_mem(Dwarf_Debug dbg,
 int dwarf_print_type(Dwarf_Debug dw_dbg, 
     st_dieNode_t *entry, 
     Dwarf_Error *error,
-    int level)
-{
-    if(entry != NULL)
-    {
-        for(int i = 0; i < level; i++) printf("\t");
-        printf("type name:%s\r\n", entry->un.type.name);
-        st_dieNode_t *mem_entry = list_entry(entry->row.next, st_dieNode_t, row);
-        dwarf_print_mem(dw_dbg, mem_entry, error, level + 1);
+    int level) {
+    if (entry != NULL) {
+        for (int i = 0; i < level; i++) printf("\t");
+        printf("type name:%s %d %d/%d", entry->un.type.name, entry->un.type.byte_size, 
+            entry->un.type.pointer_type, entry->un.type.reference_type);
+        if (entry->un.type.dimensionNum > 0) {
+            printf(" [");
+            for(int i = 0; i < entry->un.type.dimensionNum; i++) 
+            {
+                if(i == 0) printf("%d", entry->un.type.dimension[i]);
+                else printf(" %d", entry->un.type.dimension[i]);
+            }
+            printf("]");
+        }
+        printf("\r\n");
+        
+        if(entry->row.next != NULL) {
+            st_dieNode_t *sub_entry = list_entry(entry->row.next, st_dieNode_t, row);
+            if (sub_entry->nodeType == NodeTyp_MEM) {
+                dwarf_print_mem(dw_dbg, sub_entry, error, level + 1);
+            } else if (sub_entry->nodeType == NodeTyp_SRT) {
+                dwarf_print_subroutine(dw_dbg, sub_entry, error, level + 1);
+            }
+        }
     }
 
     return 0;
@@ -927,41 +943,17 @@ int dwarf_print_type(Dwarf_Debug dw_dbg,
 
 int dwarf_print_var(Dwarf_Debug dw_dbg, 
     st_dieNode_t *entry, 
-    Dwarf_Error *error)
-{
-    if(entry != NULL)
-    {
-        printf("\tvar name:%s:(%d 0x%04x)", entry->un.var.name, 
+    Dwarf_Error *error) {
+    if (entry != NULL) {
+        printf("\tvar name:%s (%d 0x%04x)\r\n", entry->un.var.name, 
             entry->un.var.operation[0], entry->un.var.operation[1]);
-        if(entry->un.var.num > 0)
-        {
-            printf(" [");
-            for(int i = 0; i < entry->un.var.num; i++) 
-            {
-                if(i == 0) printf("%d", entry->un.var.deep[i]);
-                else printf(" %d", entry->un.var.deep[i]);
-            }
-            printf("]");
-        }
-        printf("\r\n");
         st_dieNode_t *type_entry = list_entry(entry->row.next, st_dieNode_t, row);
         dwarf_print_type(dw_dbg, type_entry, error, 2);
 
         st_dieNode_t *var_node = NULL;
         list_for_each_entry(var_node, &entry->column, column) {
-            printf("\tvar name:%s:(%d 0x%04x)", var_node->un.var.name, 
+            printf("\tvar name:%s (%d 0x%04x)\r\n", var_node->un.var.name, 
                 var_node->un.var.operation[0], var_node->un.var.operation[1]);
-            if(var_node->un.var.num > 0)
-            {
-                printf(" [");
-                for(int i = 0; i < var_node->un.var.num; i++) 
-                {
-                    if(i == 0) printf("%d", var_node->un.var.deep[i]);
-                    else printf(" %d", var_node->un.var.deep[i]);
-                }
-                printf("]");
-            }
-            printf("\r\n");
             st_dieNode_t *type_entry = list_entry(var_node->row.next, st_dieNode_t, row);
             dwarf_print_type(dw_dbg, type_entry, error, 2);
         }
@@ -972,10 +964,8 @@ int dwarf_print_var(Dwarf_Debug dw_dbg,
 
 int dwarf_print_die(Dwarf_Debug dw_dbg, 
     st_dieNode_t *entry, 
-    Dwarf_Error *error)
-{
-    if(entry != NULL)
-    {
+    Dwarf_Error *error) {
+    if (entry != NULL) {
         printf("cu name:%s\r\n", entry->un.cu.name);
         st_dieNode_t *var_entry = list_entry(entry->row.next, st_dieNode_t, row);
         dwarf_print_var(dw_dbg, var_entry, error);

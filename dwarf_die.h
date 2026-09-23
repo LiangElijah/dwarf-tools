@@ -20,6 +20,7 @@ typedef enum {
     NodeTyp_MEM,
     NodeTyp_SRT,
 } en_nodeType_t;
+
 typedef struct st_dieNode {
     list_head_t row; // 行
     list_head_t column; // 列
@@ -32,28 +33,19 @@ typedef struct st_dieNode {
         struct {
             char *name;
             int32_t operation[4];
-            uint32_t num;
-            uint64_t size;
-            uint32_t deep[4];
         } var;
         struct {
-            uint32_t dimension[4];
-            uint32_t dimensionNum;
-            
             char *name;
             char *name_typedef;
-            
+            uint64_t byte_size;
+            uint32_t dimension[4];
+            uint32_t dimensionNum;
             bool pointer_type;
             bool reference_type;
-            
-            uint64_t byte_size;
         } type;
         struct {
             char *name;
             int32_t operation[4];
-            uint32_t num;
-            uint64_t size;
-            uint32_t deep[4];
             uint64_t bit_offset;
             uint64_t bit_size;
         } mem;
