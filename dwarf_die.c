@@ -32,6 +32,7 @@ int dwarf_get_machine(Dwarf_Debug dw_dbg,
     if (res != DW_DLV_OK) return res;
 
     (*machine) = dw_obj_machine;
+    return DW_DLV_OK;
 }
 
 int dwarf_next_cu_die(Dwarf_Debug dw_dbg, 
@@ -195,12 +196,6 @@ RET:
     return res;
 }
 
-int dwarf_get_type_info(Dwarf_Debug dw_dbg, 
-    Dwarf_Die die, 
-    st_dieNode_t **entry,
-    st_dieNode_t **node,
-    Dwarf_Error *error);
-
 int dwarf_find_type_node(Dwarf_Debug dw_dbg, 
     st_dieNode_t *entry,
     st_dieNode_t *new_node,
@@ -294,11 +289,9 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
     Dwarf_Error *error) {
     Dwarf_Die ret_die = NULL;
     Dwarf_Die srt_die = NULL;
-    Dwarf_Die next_die = NULL;
     st_dieNode_t *srt_entry = NULL;
     st_dieNode_t *type_entry = (*entry);
-    Dwarf_Half ret_tag = 0;
-    int res = 0;
+    int res = DW_DLV_OK;
 
     res = dwarf_get_die_type(dw_dbg, die, &ret_die, error);
     if (res == DW_DLV_ERROR) goto RET;
@@ -317,10 +310,15 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
 
         if (res == DW_DLV_OK) {
             st_dieNode_t *type_node = NULL;
-            res = dwarf_get_type_info(dw_dbg, ret_die, entry, &type_node, error);
+            int dwarf_get_type_info(Dwarf_Debug dw_dbg, 
+                Dwarf_Die die, 
+                st_dieNode_t **entry,
+                st_dieNode_t **node,
+                Dwarf_Error *error);
+            res = dwarf_get_type_info(dw_dbg, ret_die, &type_entry, &type_node, error);
             if(res != DW_DLV_OK) {
                 printf("[%s-%s:%d] dwarf_get_type_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
-                goto SRT;
+                goto BACK;
             }
 
             list_add(&type_node->row, &srt_node->row);
@@ -332,17 +330,26 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
         // 1、获取一个mem
         if (i == 0) {
             res = dwarf_child(die, &srt_die, error);
-            if (res != DW_DLV_OK) goto RET;
+            if (res == DW_DLV_ERROR) goto BACK;
+            else if (res == DW_DLV_NO_ENTRY) {
+                break;
+            }
         } else {
-            res = dwarf_siblingof_b(dw_dbg, srt_die, TRUE, &next_die, error);
+            Dwarf_Die srt_die_tmp = NULL;
+            
+            res = dwarf_siblingof_b(dw_dbg, srt_die, TRUE, &srt_die_tmp, error);
             if (res == DW_DLV_ERROR) goto SRT;
-            else if (res == DW_DLV_NO_ENTRY) break;
+            else if (res == DW_DLV_NO_ENTRY) {
+                dwarf_dealloc_die(srt_die);
+                break;
+            }
 
             dwarf_dealloc_die(srt_die);
-            srt_die = next_die;
+            srt_die = srt_die_tmp;
         }
 
         // 1.1、判断是不是mem_die
+        Dwarf_Half ret_tag = 0;
         dwarf_tag(srt_die, &ret_tag, error);
         if (ret_tag == DW_TAG_formal_parameter) {
             // 1.2、新建一个mem node
@@ -358,6 +365,11 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
             list_add_tail(&srt_node->column, &srt_entry->column);
 
             st_dieNode_t *type_node = NULL;
+            int dwarf_get_type_info(Dwarf_Debug dw_dbg, 
+                Dwarf_Die die, 
+                st_dieNode_t **entry,
+                st_dieNode_t **node,
+                Dwarf_Error *error);
             res = dwarf_get_type_info(dw_dbg, srt_die, entry, &type_node, error);
             if(res != DW_DLV_OK) {
                 printf("[%s-%s:%d] dwarf_get_type_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
@@ -370,11 +382,14 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
         }
     }
 
-    dwarf_dealloc_die(srt_die);
+    dwarf_dealloc_die(ret_die);
+    (*entry) = type_entry;
     return DW_DLV_OK;
 
 SRT:
     dwarf_dealloc_die(srt_die);
+BACK:
+    dwarf_dealloc_die(ret_die);
 RET:
     return res;
 }
@@ -384,31 +399,30 @@ int dwarf_get_member_info(Dwarf_Debug dw_dbg,
     st_dieNode_t **entry, 
     Dwarf_Error *error) {
     Dwarf_Die mem_die = NULL;
-    Dwarf_Die next_die = NULL;
     st_dieNode_t *mem_entry = NULL;
     st_dieNode_t *type_entry = (*entry);
-    Dwarf_Half ret_tag = 0;
-    int res = 0;
+    int res = DW_DLV_OK;
 
-    for (int i = 0; ; i++)
-    {
+    for (int i = 0; ; i++) {
         // 1、获取一个mem
         if (i == 0) {
             res = dwarf_child(die, &mem_die, error);
             if (res != DW_DLV_OK) goto RET;
         } else {
-            res = dwarf_siblingof_b(dw_dbg, mem_die, TRUE, &next_die, error);
+            Dwarf_Die mem_die_tmp = NULL;
+            
+            res = dwarf_siblingof_b(dw_dbg, mem_die, TRUE, &mem_die_tmp, error);
             if (res == DW_DLV_ERROR) goto MEM;
             else if (res == DW_DLV_NO_ENTRY) break;
 
             dwarf_dealloc_die(mem_die);
-            mem_die = next_die;
+            mem_die = mem_die_tmp;
         }
 
         // 1.1、判断是不是mem_die
+        Dwarf_Half ret_tag = 0;
         dwarf_tag(mem_die, &ret_tag, error);
-        if(ret_tag == DW_TAG_member)
-        {
+        if(ret_tag == DW_TAG_member) {
             // 1.2、新建一个mem node
             st_dieNode_t *mem_node = (st_dieNode_t *)malloc(sizeof(st_dieNode_t));
 
@@ -462,7 +476,12 @@ int dwarf_get_member_info(Dwarf_Debug dw_dbg,
 
             // 2、获取mem_die的维度信息以及type
             st_dieNode_t *type_node = NULL;
-            res = dwarf_get_type_info(dw_dbg, mem_die, entry, &type_node, error);
+            int dwarf_get_type_info(Dwarf_Debug dw_dbg, 
+                Dwarf_Die die, 
+                st_dieNode_t **entry,
+                st_dieNode_t **node,
+                Dwarf_Error *error);
+            res = dwarf_get_type_info(dw_dbg, mem_die, &type_entry, &type_node, error);
             if(res != DW_DLV_OK) {
                 printf("[%s-%s:%d] dwarf_get_type_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                 goto MEM;
@@ -475,6 +494,7 @@ int dwarf_get_member_info(Dwarf_Debug dw_dbg,
     }
 
     dwarf_dealloc_die(mem_die);
+    (*entry) = type_entry;
     return DW_DLV_OK;
 
 MEM:
@@ -488,16 +508,14 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
     st_dieNode_t **entry,
     st_dieNode_t **node,
     Dwarf_Error *error) {
-    Dwarf_Die last_die = NULL;
-    Dwarf_Die next_die = NULL;
-    Dwarf_Half ret_tag = 0;
-    st_dieNode_t *type_node = NULL;
-    st_dieNode_t *exist_node = NULL;
-    st_dieNode_t *type_entry = NULL;
-    int res = 0;
+    Dwarf_Die type_die = NULL;
+    st_dieNode_t *type_entry = (*entry);
+    int res = DW_DLV_OK;
+    (*node) = NULL;
 
     // 1、新建一个type node
-    type_node = (st_dieNode_t *)malloc(sizeof(st_dieNode_t));
+    st_dieNode_t *type_node = (st_dieNode_t *)malloc(sizeof(st_dieNode_t));
+    memset(type_node, 0, sizeof(st_dieNode_t));
 
     // 2、初始化一个type node
     RESET_LIST_HEAD(&type_node->row);
@@ -507,25 +525,28 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
     for (int i = 0; ; i++) {
         // 1、获取 var/mem 基础类型
         if (i == 0) {
-            res = dwarf_get_die_type(dw_dbg, die, &last_die, error);
+            res = dwarf_get_die_type(dw_dbg, die, &type_die, error);
             if (res != DW_DLV_OK) goto FREE;
         } else {
-            res = dwarf_get_die_type(dw_dbg, last_die, &next_die, error);
+            Dwarf_Die type_die_tmp = NULL;
+            
+            res = dwarf_get_die_type(dw_dbg, type_die, &type_die_tmp, error);
             if (res != DW_DLV_OK) goto TYPE;
 
-            dwarf_dealloc_die(last_die);
-            last_die = next_die;
+            dwarf_dealloc_die(type_die);
+            type_die = type_die_tmp;
         }
 
         // 2、判断 var/mem 类型特殊处理
-        dwarf_tag(last_die, &ret_tag, error);
+        Dwarf_Half ret_tag = 0;
+        dwarf_tag(type_die, &ret_tag, error);
         if (ret_tag == DW_TAG_array_type) {
             // 2.1、获取 var/mem 数组维度
-            res = dwarf_get_array_info(dw_dbg, last_die, type_node->un.type.dimension, 
+            res = dwarf_get_array_info(dw_dbg, type_die, type_node->un.type.dimension, 
                 &type_node->un.type.dimensionNum, error);
             if(res != DW_DLV_OK) goto TYPE;
         } else if (ret_tag == DW_TAG_subroutine_type) {
-            res = dwarf_diename(last_die, &type_node->un.type.name, error);
+            res = dwarf_diename(type_die, &type_node->un.type.name, error);
             if (res == DW_DLV_ERROR) {
                 printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                 goto TYPE;
@@ -542,30 +563,30 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
                     type_node->un.type.byte_size = 4;
                 }
             } else {
-                res = dwarf_bytesize(last_die, &type_node->un.type.byte_size, error);
+                res = dwarf_bytesize(type_die, &type_node->un.type.byte_size, error);
                 if (res != DW_DLV_OK) goto TYPE;
             }
-            if(entry == NULL) {
-                (*entry) = type_node;
+            if(type_entry == NULL) {
                 type_entry = type_node;
+                res = dwarf_get_routine_info(dw_dbg, type_die, &type_node, error);
+                if(res != DW_DLV_OK) goto TYPE;
             } else {
+                st_dieNode_t *exist_node = NULL;
                 dwarf_find_type_node(dw_dbg, type_entry, type_node, &exist_node, error);
                 if (exist_node == NULL) {
                     list_add_tail(&type_node->column, &type_entry->column);
-                    res = dwarf_get_routine_info(dw_dbg, last_die, &type_node, error);
+                    res = dwarf_get_routine_info(dw_dbg, type_die, &type_node, error);
                     if(res != DW_DLV_OK) goto TYPE;
-                    (*node) = type_node;
                 } else {
                     free(type_node);
                     type_node = exist_node;
-                    (*node) = type_node;
                 }
             }
             break; // no subtype
         } else if ((ret_tag == DW_TAG_class_type) ||
             (ret_tag == DW_TAG_structure_type) ||
             (ret_tag == DW_TAG_union_type)) {
-            res = dwarf_diename(last_die, &type_node->un.type.name, error);
+            res = dwarf_diename(type_die, &type_node->un.type.name, error);
             if (res == DW_DLV_ERROR) {
                 printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                 goto TYPE;
@@ -582,23 +603,23 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
                     type_node->un.type.byte_size = 4;
                 }
             } else {
-                res = dwarf_bytesize(last_die, &type_node->un.type.byte_size, error);
+                res = dwarf_bytesize(type_die, &type_node->un.type.byte_size, error);
                 if (res != DW_DLV_OK) goto TYPE;
             }
-            if(entry == NULL) {
-                (*entry) = type_node;
+            if(type_entry == NULL) {
                 type_entry = type_node;
+                res = dwarf_get_member_info(dw_dbg, type_die, &type_node, error);
+                if(res != DW_DLV_OK) goto TYPE;
             } else {
+                st_dieNode_t *exist_node = NULL;
                 dwarf_find_type_node(dw_dbg, type_entry, type_node, &exist_node, error);
                 if (exist_node == NULL) {
                     list_add_tail(&type_node->column, &type_entry->column);
-                    res = dwarf_get_member_info(dw_dbg, last_die, &type_node, error);
+                    res = dwarf_get_member_info(dw_dbg, type_die, &type_node, error);
                     if(res != DW_DLV_OK) goto TYPE;
-                    (*node) = type_node;
                 } else {
                     free(type_node);
                     type_node = exist_node;
-                    (*node) = type_node;
                 }
             }
             break; // no subtype
@@ -607,7 +628,7 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
         } else if (ret_tag == DW_TAG_reference_type) {
             type_node->un.type.reference_type = TRUE;
         } else if (ret_tag == DW_TAG_typedef) {
-            res = dwarf_diename(last_die, &type_node->un.type.name_typedef, error);
+            res = dwarf_diename(type_die, &type_node->un.type.name_typedef, error);
             if (res == DW_DLV_ERROR) {
                 printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                 goto TYPE;
@@ -615,7 +636,7 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
                 type_node->un.type.name_typedef = NULL;
             }
         } else if (ret_tag == DW_TAG_base_type) {
-            res = dwarf_diename(last_die, &type_node->un.type.name, error);
+            res = dwarf_diename(type_die, &type_node->un.type.name, error);
             if (res == DW_DLV_ERROR) {
                 printf("[%s-%s:%d] dwarf_diename() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                 goto TYPE;
@@ -632,31 +653,32 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
                     type_node->un.type.byte_size = 4;
                 }
             } else {
-                res = dwarf_bytesize(last_die, &type_node->un.type.byte_size, error);
+                res = dwarf_bytesize(type_die, &type_node->un.type.byte_size, error);
                 if (res != DW_DLV_OK) goto TYPE;
             }
-            if(entry == NULL) {
-                (*entry) = type_node;
+            if(type_entry == NULL) {
                 type_entry = type_node;
             } else {
+                st_dieNode_t *exist_node = NULL;
                 dwarf_find_type_node(dw_dbg, type_entry, type_node, &exist_node, error);
-                if(exist_node == NULL) {
+                if (exist_node == NULL) {
                     list_add_tail(&type_node->column, &type_entry->column);
-                    (*node) = type_node;
                 } else {
                     free(type_node);
                     type_node = exist_node;
-                    (*node) = type_node;
                 }
             }
             break; // no subtype
         } 
     }
 
+    dwarf_dealloc_die(type_die);
+    (*node) = type_node;
+    (*entry) = type_entry;
     return DW_DLV_OK;
 
 TYPE:
-    dwarf_dealloc_die(last_die);
+    dwarf_dealloc_die(type_die);
 FREE:
     free(type_node);
 RET:
@@ -668,7 +690,6 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
     Dwarf_Error *error) {
     Dwarf_Die cu_die = NULL;
     Dwarf_Die var_die = NULL;
-    Dwarf_Die type_die = NULL;
     st_dieNode_t *cu_entry = NULL;
     st_dieNode_t *var_entry = NULL;
     st_dieNode_t *type_entry = NULL;
@@ -744,6 +765,7 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
                 // 2.2、判断var_die是否是声明
 				Dwarf_Attribute ret_attr = NULL;
                 Dwarf_Bool ret_flag = false;
+                
                 res = dwarf_attr(var_die, DW_AT_declaration, &ret_attr, error);
                 if (res == DW_DLV_ERROR) {
                     printf("[%s-%s:%d] dwarf_attr() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
@@ -797,13 +819,15 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
                     
                     // 3、获取var_die的维度信息以及type
                     st_dieNode_t *type_node = NULL;
-                    res = dwarf_get_type_info(dw_dbg, var_die, entry, &type_node, error);
+                    res = dwarf_get_type_info(dw_dbg, var_die, &type_entry, &type_node, error);
                     if (res != DW_DLV_OK) {
                         printf("[%s-%s:%d] dwarf_get_die_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                         goto VAR;
                     }
                     // printf("dimension:%d %d %d %d %d %d\r\n", var_node->un.var.size, var_node->un.var.num, 
                     //      var_node->un.var.deep[0], var_node->un.var.deep[1], var_node->un.var.deep[2], var_node->un.var.deep[3]);
+                
+                    list_add(&type_node->row, &var_node->row);
                 }
             }
         }
@@ -814,8 +838,6 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
     (*entry) = cu_entry;
     return DW_DLV_OK;
 
-TYPE:
-    dwarf_dealloc_die(type_die);
 VAR:
     dwarf_dealloc_die(var_die);
 CU:
