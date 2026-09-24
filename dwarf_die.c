@@ -564,6 +564,20 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
     RESET_LIST_HEAD(&type_node->row);
     INIT_LIST_HEAD(&type_node->column);
     type_node->nodeType = NodeTyp_TYPE;
+
+    Dwarf_Unsigned machine = EM_NONE;
+    res = dwarf_get_machine(dw_dbg, &machine, error);
+    if (res != DW_DLV_OK) {
+        printf("[%s-%s:%d] dwarf_get_machine() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+        goto FREE;
+    }
+    if (machine == EM_TI_C2000) {
+        type_node->un.type.byte_size = 2;
+        type_node->un.type.byte_width = 16;
+    } else {
+        type_node->un.type.byte_size = 4;
+        type_node->un.type.byte_width = 8;
+    }
     
     for (int i = 0; ; i++) {
         // 3、获取 var/mem 的 type die
@@ -605,19 +619,7 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
             } else if (res == DW_DLV_NO_ENTRY) {
                 type_node->un.type.name = NULL;
             }
-            if(type_node->un.type.pointer_type == TRUE) {
-                Dwarf_Unsigned machine = EM_NONE;
-                res = dwarf_get_machine(dw_dbg, &machine, error);
-                if (res != DW_DLV_OK) {
-                    printf("[%s-%s:%d] dwarf_get_machine() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
-                    goto TYPE;
-                }
-                if (machine == EM_TI_C2000) {
-                    type_node->un.type.byte_size = 2;
-                } else {
-                    type_node->un.type.byte_size = 4;
-                }
-            } else {
+            if(type_node->un.type.pointer_type == FALSE) {
                 res = dwarf_bytesize(type_die, &type_node->un.type.byte_size, error);
                 if (res != DW_DLV_OK) {
                     printf("[%s-%s:%d] dwarf_bytesize() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
@@ -660,19 +662,7 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
             } else if (res == DW_DLV_NO_ENTRY) {
                 type_node->un.type.name = NULL;
             }
-            if(type_node->un.type.pointer_type == TRUE) {
-                Dwarf_Unsigned machine = EM_NONE;
-                res = dwarf_get_machine(dw_dbg, &machine, error);
-                if (res != DW_DLV_OK) {
-                    printf("[%s-%s:%d] dwarf_get_machine() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
-                    goto TYPE;
-                }
-                if (machine == EM_TI_C2000) {
-                    type_node->un.type.byte_size = 2;
-                } else {
-                    type_node->un.type.byte_size = 4;
-                }
-            } else {
+            if(type_node->un.type.pointer_type == FALSE) {
                 res = dwarf_bytesize(type_die, &type_node->un.type.byte_size, error);
                 if (res != DW_DLV_OK) {
                     printf("[%s-%s:%d] dwarf_bytesize() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
@@ -723,19 +713,7 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
             } else if (res == DW_DLV_NO_ENTRY) {
                 type_node->un.type.name = NULL;
             }
-            if(type_node->un.type.pointer_type == TRUE) {
-                Dwarf_Unsigned machine = EM_NONE;
-                res = dwarf_get_machine(dw_dbg, &machine, error);
-                if (res != DW_DLV_OK) {
-                    printf("[%s-%s:%d] dwarf_get_machine() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
-                    goto TYPE;
-                }
-                if (machine == EM_TI_C2000) {
-                    type_node->un.type.byte_size = 2;
-                } else {
-                    type_node->un.type.byte_size = 4;
-                }
-            } else {
+            if(type_node->un.type.pointer_type == FALSE) {
                 res = dwarf_bytesize(type_die, &type_node->un.type.byte_size, error);
                 if (res != DW_DLV_OK) {
                     printf("[%s-%s:%d] dwarf_bytesize() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
