@@ -9,8 +9,7 @@
 #include "dwarf_str.h"
 
 typedef enum {
-    AddrStatus_OK,
-    AddrStatus_EMPTYPTR,
+    AddrStatus_FOUND,
     AddrStatus_NOFOUND,
     AddrStatus_UNSUPPORT,
     AddrStatus_NOTYPE,
@@ -19,14 +18,13 @@ typedef enum {
     AddrStatus_ARRAY_MORE,
     AddrStatus_ARRAY_OUT,
 } en_addrStatus_t;
+
 typedef struct st_addr {
     uint64_t bit_offset;
     uint64_t bit_size;
     uint32_t addr;
-    uint32_t num;
-    uint32_t numDef;
-    uint32_t*deep;
-    char *typName;
+    st_dieNode_t *type_node;
+    st_str_t *strBuf;
 } st_addr_t;
 
 int dwarf_addr_cal(st_dieNode_t *entry, 

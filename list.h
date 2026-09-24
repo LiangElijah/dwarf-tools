@@ -94,10 +94,10 @@ static inline void RESET_LIST_HEAD(list_head_t *list)
  */
 static inline void __list_add(list_head_t *new_node, list_head_t *prev_node, list_head_t *next_node)
 {
-    if(next_node != NULL) next_node->prev = new_node;
+    next_node->prev = new_node;
     new_node->next = next_node;
     new_node->prev = prev_node;
-    if(prev_node != NULL) prev_node->next = new_node;
+    prev_node->next = new_node;
 }
 
 /**

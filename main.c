@@ -90,24 +90,36 @@ int main(int argc, char *argv[])
         if(res != DW_DLV_OK)
         {
             printf("file format err\r\n");
-            return 0;
+            return -1;
         }
     }
 
     res = dwarf_die_init(dbg, &entry, &error);
-    // if((res == DW_DLV_OK) && (entry != NULL))
-    //     dwarf_print_die(dbg, entry, &error);
-    // else printf("entry err\r\n");
+    if((res == DW_DLV_OK) && (entry != NULL)) {
+        dwarf_print_die(dbg, entry, &error);
+        printf("\r\n");
+    } else {
+        printf("entry err\r\n");
+        return -1;
+    }
 
     res = dwarf_str_init(cvariant, &str);
-    // if(res == 0)
-    //     dwarf_print_str(&str);
-    // else printf("str err\r\n");
+    if(res == 0) {
+        dwarf_print_str(&str);
+        printf("\r\n");
+    } else {
+        printf("str err\r\n");
+        return -1;
+    }
 
     res = dwarf_addr_cal(entry, &str, &addr);
-    if(res == 0)
+    if(res == 0) {
         dwarf_print_addr(&addr);
-    else printf("addr err\r\n");
+		printf("\r\n");
+    } else {
+        printf("addr err\r\n");
+        return -1;
+    }
 
     return 0;
 }

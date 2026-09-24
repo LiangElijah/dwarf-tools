@@ -6,6 +6,17 @@
 #include <string.h>
 #include <stdlib.h>
 
+typedef enum {
+    StrStatus_OK,
+    StrStatus_ENDP_EMPTY,
+    StrStatus_START_SQBRACKET,
+    StrStatus_END_SQBRACKET,
+    StrStatus_NOTNUM,
+    StrStatus_NONUM,
+    StrStatus_ERRFORMAT,
+    StrStatus_STARTP_ONLYP,
+} en_strStatus_t;
+
 typedef struct st_str {
     int segmentNum;
     char segment[16][32];

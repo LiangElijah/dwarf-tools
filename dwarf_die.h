@@ -42,6 +42,7 @@ typedef struct st_dieNode {
             uint32_t dimensionNum;
             bool pointer_type;
             bool reference_type;
+            int type_tag;
         } type;
         struct {
             char *name;
