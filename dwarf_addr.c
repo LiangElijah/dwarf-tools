@@ -181,17 +181,19 @@ int dwarf_print_addr(st_addr_t *addrBuf) {
         printf("TYPE: ");
         st_dieNode_t *sub_entry = list_entry(type_node->row.next, st_dieNode_t, row);
         if(sub_entry->row.next == NULL) {
-            printf("void (*)");
+            printf("void (*%s)", type_node->un.type.name_typedef);
         } else {
             st_dieNode_t *ret_entry = list_entry(sub_entry->row.next, st_dieNode_t, row);
             if(ret_entry->un.type.name == NULL) {
                 printf("%s", ret_entry->un.type.name_typedef);
             } else {
-                if (ret_entry->un.type.type_tag == DW_TAG_structure_type) printf("struct %s", ret_entry->un.type.name);
+                if (ret_entry->un.type.type_tag == DW_TAG_class_type) printf("class %s", ret_entry->un.type.name);
+                else if (ret_entry->un.type.type_tag == DW_TAG_structure_type) printf("struct %s", ret_entry->un.type.name);
                 else if (ret_entry->un.type.type_tag == DW_TAG_union_type) printf("union %s", ret_entry->un.type.name);
+                else if (ret_entry->un.type.type_tag == DW_TAG_enumeration_type) printf("enum %s", ret_entry->un.type.name);
                 else printf("%s", ret_entry->un.type.name);
             }
-            printf(" (*%s)");
+            printf(" (*%s)", type_node->un.type.name_typedef);
         }
         st_dieNode_t *sub_node = NULL; int i = 0; printf("(");
         list_for_each_entry(sub_node, &sub_entry->column, column) {
@@ -201,8 +203,10 @@ int dwarf_print_addr(st_addr_t *addrBuf) {
             if (param_entry->un.type.name == NULL) {
                 printf("%s", param_entry->un.type.name_typedef);
             } else {
-                if (param_entry->un.type.type_tag == DW_TAG_structure_type) printf("struct %s", param_entry->un.type.name);
+                if (param_entry->un.type.type_tag == DW_TAG_class_type) printf("class %s", param_entry->un.type.name);
+                else if (param_entry->un.type.type_tag == DW_TAG_structure_type) printf("struct %s", param_entry->un.type.name);
                 else if (param_entry->un.type.type_tag == DW_TAG_union_type) printf("union %s", param_entry->un.type.name);
+                else if (param_entry->un.type.type_tag == DW_TAG_enumeration_type) printf("enum %s", param_entry->un.type.name);
                 else printf("%s", param_entry->un.type.name);
             }
         }
@@ -215,6 +219,7 @@ int dwarf_print_addr(st_addr_t *addrBuf) {
             if (type_node->un.type.type_tag == DW_TAG_class_type) printf("TYPE: class %s", type_node->un.type.name);
             else if (type_node->un.type.type_tag == DW_TAG_structure_type) printf("TYPE: struct %s", type_node->un.type.name);
             else if (type_node->un.type.type_tag == DW_TAG_union_type) printf("TYPE: union %s", type_node->un.type.name);
+            else if (type_node->un.type.type_tag == DW_TAG_enumeration_type) printf("TYPE: enum %s", type_node->un.type.name);
             else printf("TYPE: %s", type_node->un.type.name);
         }
         if (type_node->un.type.pointer_type == true) {
