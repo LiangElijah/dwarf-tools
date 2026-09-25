@@ -7,11 +7,11 @@
 #include <string.h>
 
 #include "dwarf.h"
-#include "dwarf_elf_defines.h"
 #include "libdwarf.h"
-#include "libdwarf_private.h"
-#include "config.h"
 #include "list.h"
+
+#define EM_NONE          0
+#define EM_TI_C2000      141
 
 typedef enum {
     NodeTyp_CU,

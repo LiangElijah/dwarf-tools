@@ -6,8 +6,6 @@
 
 #include "dwarf.h"
 #include "libdwarf.h"
-#include "libdwarf_private.h"
-#include "config.h"
 
 typedef struct {
     char*name;

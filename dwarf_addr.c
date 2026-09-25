@@ -217,7 +217,7 @@ int dwarf_print_addr(st_addr_t *addrBuf) {
             else if (type_node->un.type.type_tag == DW_TAG_union_type) printf("TYPE: union %s", type_node->un.type.name);
             else printf("TYPE: %s", type_node->un.type.name);
         }
-        if (type_node->un.type.pointer_type == TRUE) {
+        if (type_node->un.type.pointer_type == true) {
             printf(" *");
         }
     }
@@ -227,12 +227,12 @@ int dwarf_print_addr(st_addr_t *addrBuf) {
             printf("[%d]", type_node->un.type.dimension[d]);
         }
     } else if (addrBuf->bit_size > 0) {
-        printf(" | ");
+        int bit_width = type_node->un.type.byte_width * type_node->un.type.byte_size; printf(" | ");
         if (addrBuf->bit_size == 1) {
-            printf("Bit:%d(%d)", 15-addrBuf->bit_offset, addrBuf->bit_size);
+            printf("Bit:%d(%d)", bit_width - addrBuf->bit_offset - 1, 1);
         } else {
-            printf("Bit:%d-%d(%d)", 15 - addrBuf->bit_offset - addrBuf->bit_size + 1, 
-                15 - addrBuf->bit_offset, addrBuf->bit_size);
+            printf("Bit:%d-%d(%d)", bit_width - addrBuf->bit_offset - addrBuf->bit_size, 
+                bit_width - addrBuf->bit_offset - 1, addrBuf->bit_size);
         }
     }
 

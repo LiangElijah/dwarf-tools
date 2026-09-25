@@ -9,8 +9,6 @@
 
 #include "dwarf.h"
 #include "libdwarf.h"
-#include "libdwarf_private.h"
-#include "config.h"
 
 #include "dwarf_method.h"
 

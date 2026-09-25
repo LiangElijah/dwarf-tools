@@ -6,8 +6,6 @@
 
 #include "dwarf.h"
 #include "libdwarf.h"
-#include "libdwarf_private.h"
-#include "config.h"
 
 int dwarf_elf_init(const char *path,
     Dwarf_Debug *ret_dbg, 
