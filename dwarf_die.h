@@ -37,6 +37,8 @@ typedef struct st_dieNode {
         struct {
             char *name;
             char *name_typedef;
+            uint64_t offset;
+            int is_info;
             uint64_t byte_size;
             uint8_t byte_width;
             uint32_t dimension[4];

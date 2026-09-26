@@ -208,14 +208,18 @@ int dwarf_find_type_node(Dwarf_Debug dw_dbg,
     int res = 0;
     (*exist_node) = NULL;
 
-    res = memcmp(&entry->un.type, &new_node->un.type, sizeof(new_node->un.type));
-    if (res == 0) {
+    // res = memcmp(&entry->un.type, &new_node->un.type, sizeof(new_node->un.type));
+    // if (res == 0) {
+    if((entry->un.type.offset == new_node->un.type.offset) && 
+        (entry->un.type.is_info == new_node->un.type.is_info)) {
         (*exist_node) = entry;
     } else {
         st_dieNode_t *type_node = NULL;
         list_for_each_entry(type_node, &entry->column, column) {
-            res = memcmp(&type_node->un.type, &new_node->un.type, sizeof(new_node->un.type));
-            if (res == 0) {
+            // res = memcmp(&type_node->un.type, &new_node->un.type, sizeof(new_node->un.type));
+            // if (res == 0) {
+            if((type_node->un.type.offset == new_node->un.type.offset) && 
+                (type_node->un.type.is_info == new_node->un.type.is_info)) {
                 (*exist_node) = type_node;
                 break;
             }
@@ -228,14 +232,14 @@ int dwarf_find_type_node(Dwarf_Debug dw_dbg,
 int dwarf_get_die_type(Dwarf_Debug dw_dbg, 
     Dwarf_Die die, 
     Dwarf_Die *type_die, 
+    Dwarf_Off *offset,
+    Dwarf_Bool *is_info,
     Dwarf_Error *error) {
-    Dwarf_Off offset = 0;
-    Dwarf_Bool is_info = 0;
 
-    int res = dwarf_dietype_offset(die, &offset, &is_info, error);
+    int res = dwarf_dietype_offset(die, offset, is_info, error);
     if(res != DW_DLV_OK) return res;
     
-    return dwarf_offdie_b(dw_dbg, offset, is_info, type_die, error);
+    return dwarf_offdie_b(dw_dbg, *offset, *is_info, type_die, error);
 }
 
 int dwarf_get_array_info(Dwarf_Debug dw_dbg, 
@@ -324,7 +328,7 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
         Dwarf_Error *error);
     res = dwarf_get_type_info(dw_dbg, die, &type_entry, &type_node, error);
     if (res == DW_DLV_ERROR) {
-        printf("[%s-%s:%d] dwarf_get_die_type() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
+        printf("[%s-%s:%d] dwarf_get_type_info() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
         goto RET;
     } else {
         // 1.2、新建一个srt node
@@ -576,7 +580,8 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
     for (int i = 0; ; i++) {
         // 3、获取 var/mem 的 type die
         if (i == 0) {
-            res = dwarf_get_die_type(dw_dbg, die, &type_die, error);
+            res = dwarf_get_die_type(dw_dbg, die, &type_die, 
+                &type_node->un.type.offset, &type_node->un.type.is_info, error);
             if (res != DW_DLV_OK) {
                 if (res == DW_DLV_ERROR) {
                     printf("[%s-%s:%d] dwarf_get_die_type() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
@@ -586,7 +591,8 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
         } else {
             Dwarf_Die type_die_tmp = NULL;
             
-            res = dwarf_get_die_type(dw_dbg, type_die, &type_die_tmp, error);
+            res = dwarf_get_die_type(dw_dbg, type_die, &type_die_tmp, 
+                &type_node->un.type.offset, &type_node->un.type.is_info, error);
             if (res != DW_DLV_OK) {
                 printf("[%s-%s:%d] dwarf_get_die_type() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                 goto TYPE;

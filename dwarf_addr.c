@@ -169,21 +169,15 @@ int dwarf_addr_cal(st_dieNode_t *entry,
     return AddrStatus_FOUND;
 }
 
-int dwarf_print_addr(st_addr_t *addrBuf) {
-    st_dieNode_t *type_node = addrBuf->type_node;
-    st_str_t *strBuf = addrBuf->strBuf;
-    int dimensionNum_str = strBuf->dimensionNum[strBuf->segmentNum-1];
-    int dimensionNum_type = type_node->un.type.dimensionNum;
-    
-    printf("ADDR: 0x%X | ", addrBuf->addr);
-    
-    if (type_node->un.type.type_tag == DW_TAG_subroutine_type) {
-        printf("TYPE: ");
-        st_dieNode_t *sub_entry = list_entry(type_node->row.next, st_dieNode_t, row);
-        if(sub_entry->row.next == NULL) {
-            printf("void (*%s)", type_node->un.type.name_typedef);
+int dwarf_print_routine(st_dieNode_t *type_node) {
+    st_dieNode_t *sub_entry = list_entry(type_node->row.next, st_dieNode_t, row);
+    if(sub_entry->row.next == NULL) {
+        printf("void (*%s)", type_node->un.type.name_typedef);
+    } else {
+        st_dieNode_t *ret_entry = list_entry(sub_entry->row.next, st_dieNode_t, row);
+        if(ret_entry->un.type.type_tag == DW_TAG_subroutine_type) {
+            dwarf_print_routine(ret_entry);
         } else {
-            st_dieNode_t *ret_entry = list_entry(sub_entry->row.next, st_dieNode_t, row);
             if(ret_entry->un.type.name == NULL) {
                 printf("%s", ret_entry->un.type.name_typedef);
             } else {
@@ -193,13 +187,17 @@ int dwarf_print_addr(st_addr_t *addrBuf) {
                 else if (ret_entry->un.type.type_tag == DW_TAG_enumeration_type) printf("enum %s", ret_entry->un.type.name);
                 else printf("%s", ret_entry->un.type.name);
             }
-            printf(" (*%s)", type_node->un.type.name_typedef);
         }
-        st_dieNode_t *sub_node = NULL; int i = 0; printf("(");
-        list_for_each_entry(sub_node, &sub_entry->column, column) {
-            i++; if(i > 1) printf(", ");
+        printf(" (*%s)", type_node->un.type.name_typedef);
+    }
+    st_dieNode_t *sub_node = NULL; int i = 0; printf("(");
+    list_for_each_entry(sub_node, &sub_entry->column, column) {
+        i++; if(i > 1) printf(", ");
 
-            st_dieNode_t *param_entry = list_entry(sub_node->row.next, st_dieNode_t, row);
+        st_dieNode_t *param_entry = list_entry(sub_node->row.next, st_dieNode_t, row);
+        if(param_entry->un.type.type_tag == DW_TAG_subroutine_type) {
+            dwarf_print_routine(param_entry);
+        } else {
             if (param_entry->un.type.name == NULL) {
                 printf("%s", param_entry->un.type.name_typedef);
             } else {
@@ -210,11 +208,33 @@ int dwarf_print_addr(st_addr_t *addrBuf) {
                 else printf("%s", param_entry->un.type.name);
             }
         }
-        if (i == 0) printf("void)");
-        else printf(")");
+    }
+    if (i == 0) printf("void)");
+    else printf(")");
+}
+
+int dwarf_print_addr(st_addr_t *addrBuf) {
+    st_dieNode_t *type_node = addrBuf->type_node;
+    st_str_t *strBuf = addrBuf->strBuf;
+    int dimensionNum_str = strBuf->dimensionNum[strBuf->segmentNum-1];
+    int dimensionNum_type = type_node->un.type.dimensionNum;
+    
+    printf("ADDR: 0x%X | ", addrBuf->addr);
+    
+    if (type_node->un.type.type_tag == DW_TAG_subroutine_type) {
+        printf("TYPE: ");
+        dwarf_print_routine(type_node);
     } else {
         if (type_node->un.type.name == NULL) {
-            printf("TYPE: %s", type_node->un.type.name_typedef);
+            if(type_node->un.type.name_typedef == NULL) {
+                if (type_node->un.type.type_tag == DW_TAG_class_type) printf("TYPE: class(unknown)");
+                else if (type_node->un.type.type_tag == DW_TAG_structure_type) printf("TYPE: struct(unknown)");
+                else if (type_node->un.type.type_tag == DW_TAG_union_type) printf("TYPE: union(unknown)");
+                else if (type_node->un.type.type_tag == DW_TAG_enumeration_type) printf("TYPE: enum(unknown)");
+                else printf("TYPE: (unknown)");
+            } else {
+                printf("TYPE: %s", type_node->un.type.name_typedef);
+            }
         } else {
             if (type_node->un.type.type_tag == DW_TAG_class_type) printf("TYPE: class %s", type_node->un.type.name);
             else if (type_node->un.type.type_tag == DW_TAG_structure_type) printf("TYPE: struct %s", type_node->un.type.name);
