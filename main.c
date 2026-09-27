@@ -94,22 +94,22 @@ int main(int argc, char *argv[])
     }
 
     res = dwarf_die_init(dbg, &entry, &error);
-    if((res == DW_DLV_OK) && (entry != NULL)) {
-        dwarf_print_die(dbg, entry, &error);
-        printf("\r\n");
-    } else {
-        printf("entry err\r\n");
-        return -1;
-    }
+    // if((res == DW_DLV_OK) && (entry != NULL)) {
+    //     dwarf_print_die(dbg, entry, &error);
+    //     printf("\r\n");
+    // } else {
+    //     printf("entry err\r\n");
+    //     return -1;
+    // }
 
     res = dwarf_str_init(cvariant, &str);
-    if(res == 0) {
-        dwarf_print_str(&str);
-        printf("\r\n");
-    } else {
-        printf("str err\r\n");
-        return -1;
-    }
+    // if(res == 0) {
+    //     dwarf_print_str(&str);
+    //     printf("\r\n");
+    // } else {
+    //     printf("str err\r\n");
+    //     return -1;
+    // }
 
     res = dwarf_addr_cal(&initSec, entry, &str, &addr);
     if(res == 0) {

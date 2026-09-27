@@ -25,7 +25,6 @@ typedef struct st_addr {
     uint64_t bit_offset;
     uint64_t bit_size;
     uint32_t addr;
-    uint32_t addrRef;
     st_dieNode_t *type_node;
     st_str_t *strBuf;
 } st_addr_t;

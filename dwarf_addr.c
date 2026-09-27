@@ -7,7 +7,7 @@ int dwarf_addr_cal(Dwarf_Obj *initSec_p,
     st_dieNode_t *var_node = NULL;
     st_dieNode_t *mem_node = NULL;
     st_dieNode_t *type_node = NULL;
-    uint32_t found = 0, address = 0, addressRef = 0;
+    uint32_t found = 0, address = 0;
     
     for (int n = 0; n < strBuf->segmentNum; n++) {
         if (n == 0) {
@@ -63,9 +63,15 @@ int dwarf_addr_cal(Dwarf_Obj *initSec_p,
             if (var_node->row.next != NULL) {
                 type_node = list_entry(var_node->row.next, st_dieNode_t, row);
                 if(type_node->un.type.reference_type == true) {
+                    int byteSize = 1;
+                    if(type_node->un.type.byte_width == 16) {
+                        byteSize = 2;
+                    }
+                    
                     if((address >= initSec_p->addr) && 
-                        ((address - initSec_p->addr) < initSec_p->size)) {
-                        // addressRef = initSec_p->data[address - initSec_p->addr];
+                        (((address - initSec_p->addr)*byteSize + 4) < initSec_p->size)) {
+                        memcpy(&address, initSec_p->data + 
+                            (address - initSec_p->addr)*byteSize, 4);
                     } else {
                         printf("[%s-%s:%d] Over Init Size.\n", 
                             __FILE__, __func__, __LINE__);
@@ -167,7 +173,6 @@ int dwarf_addr_cal(Dwarf_Obj *initSec_p,
 
     memset(addrBuf, 0, sizeof(st_addr_t));
     addrBuf->addr = address;
-    addrBuf->addrRef = addressRef;
     addrBuf->strBuf = strBuf;
     addrBuf->type_node = type_node;
     if(mem_node != NULL) {

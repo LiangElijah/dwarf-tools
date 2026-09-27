@@ -345,11 +345,6 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
 
         if (res == DW_DLV_OK) {
             list_connect(&type_node->row, &srt_node->row);
-
-            // 1.5、处理引用类型的地址
-            if(type_node->un.type.reference_type == true) {
-
-            }
         }
     }
 
@@ -409,11 +404,6 @@ int dwarf_get_routine_info(Dwarf_Debug dw_dbg,
                 goto SRT;
             }
             list_connect(&type_node->row, &srt_node->row);
-
-            // 2.6、处理引用类型的地址
-            if(type_node->un.type.reference_type == true) {
-
-            }
         }
     }
 
@@ -527,11 +517,6 @@ int dwarf_get_member_info(Dwarf_Debug dw_dbg,
                 goto MEM;
             }
             list_connect(&type_node->row, &mem_node->row);
-
-            // 1.9、处理引用类型的地址
-            if(type_node->un.type.reference_type == true) {
-
-            }
         }
     }
 
@@ -590,9 +575,10 @@ int dwarf_get_type_info(Dwarf_Debug dw_dbg,
             }
         } else {
             Dwarf_Die type_die_tmp = NULL;
+            uint64_t offset; int is_info;
             
             res = dwarf_get_die_type(dw_dbg, type_die, &type_die_tmp, 
-                &type_node->un.type.offset, &type_node->un.type.is_info, error);
+                &offset, &is_info, error);
             if (res != DW_DLV_OK) {
                 printf("[%s-%s:%d] dwarf_get_die_type() %s.\n", __FILE__, __func__, __LINE__, dwarf_errmsg(*error));
                 goto TYPE;
@@ -889,11 +875,6 @@ int dwarf_die_init(Dwarf_Debug dw_dbg,
                         goto VAR;
                     }
                     list_connect(&type_node->row, &var_node->row);
-
-                    // 2.9、处理引用类型的地址
-                    if(type_node->un.type.reference_type == true) {
-
-                    }
                 }
             }
         }

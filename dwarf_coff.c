@@ -195,7 +195,20 @@ int dwarf_coff_init(const char *path,
     dw_accessInterface->ai_methods = &dw_methods;
     if(dwarf_object_init_b(dw_accessInterface, NULL, NULL, 
         DW_GROUPNUMBER_ANY, ret_dbg, error) == DW_DLV_OK) {
-        // 解析cinit到ebss
+        for (int n = 0; ;) {
+            st_inittab_t *table = (st_inittab_t *)(cinitSec.data + n);
+            if(cinitSec.size >= n + 6) {
+                uint16_t size = (0xFFFF - table->u16Size + 1)*2;
+                if(cinitSec.size >= n + 6 + size) {
+                    if((table->i32Addr >= initSec_p->addr) && 
+                        (((table->i32Addr - initSec_p->addr)*2 + size) < initSec_p->size)) {
+                        memcpy(initSec_p->data + (table->i32Addr - initSec_p->addr)*2, 
+                            table->u8Data, size);
+                    }
+                    n += (6 + size);
+                } else break;
+            } else break;
+        }
 
         fclose(fp);
         free(cinitSec.data);

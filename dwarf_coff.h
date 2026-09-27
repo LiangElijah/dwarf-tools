@@ -75,6 +75,12 @@ typedef struct st_syment {
   int8_t   i8NumAux;            // 符号附加记录数
 } __attribute__((packed)) st_syment_t;
 
+typedef struct st_inittab {
+  uint16_t u16Size;              // 长度（负值）
+  uint32_t i32Addr;             // 地址
+  uint8_t u8Data[1];            // 数据
+} __attribute__((packed)) st_inittab_t;
+
 int dwarf_coff_init(const char *path, 
     Dwarf_Obj_Access_Interface_a *dw_accessInterface,
     Dwarf_Obj *initSec_p,
