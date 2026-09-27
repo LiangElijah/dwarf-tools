@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "list.h"
+#include "dwarf_method.h"
 #include "dwarf_die.h"
 #include "dwarf_str.h"
 
@@ -12,6 +13,7 @@ typedef enum {
     AddrStatus_FOUND,
     AddrStatus_NOFOUND,
     AddrStatus_UNSUPPORT,
+    AddrStatus_OverSize,
     AddrStatus_NOTYPE,
     AddrStatus_NOMEM,
     AddrStatus_ARRAY_LESS,
@@ -23,11 +25,13 @@ typedef struct st_addr {
     uint64_t bit_offset;
     uint64_t bit_size;
     uint32_t addr;
+    uint32_t addrRef;
     st_dieNode_t *type_node;
     st_str_t *strBuf;
 } st_addr_t;
 
-int dwarf_addr_cal(st_dieNode_t *entry, 
+int dwarf_addr_cal(Dwarf_Obj *initSec_p,
+    st_dieNode_t *entry, 
     st_str_t *strBuf, 
     st_addr_t *addrBuf);
 int dwarf_print_addr(st_addr_t *addrBuf);

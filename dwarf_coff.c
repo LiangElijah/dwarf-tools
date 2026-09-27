@@ -1,7 +1,8 @@
 #include "dwarf_coff.h"
 
 int dwarf_coff_init(const char *path, 
-    Dwarf_Obj_Access_Data **dw_accessData_p,
+    Dwarf_Obj_Access_Interface_a *dw_accessInterface,
+    Dwarf_Obj *initSec_p,
     Dwarf_Debug *ret_dbg, 
     Dwarf_Error *error)
 {
@@ -12,6 +13,7 @@ int dwarf_coff_init(const char *path,
     Dwarf_Unsigned file_size = 0;
     Dwarf_Small byte_order = DW_END_little;
     Dwarf_Obj_Access_Data *dw_accessData = NULL;
+    Dwarf_Obj cinitSec = {0};
 
     int res = 0;
 
@@ -123,13 +125,36 @@ int dwarf_coff_init(const char *path,
             section_name_length = 8;
         }
 
-        if(strncmp(section_name, ".debug_", strlen(".debug_")) == 0) {
-            dw_accessData->section[dw_accessData->section_num].name = malloc(section_name_length);
-            dw_accessData->section[dw_accessData->section_num].addr = 0x0000;
-            dw_accessData->section[dw_accessData->section_num].size = sechdr.i32Size;
-            dw_accessData->section[dw_accessData->section_num].data = malloc(sechdr.i32Size);
-            memcpy(dw_accessData->section[dw_accessData->section_num].name, section_name, section_name_length);
-            dw_accessData->section_num++;
+        if((strncmp(section_name, ".debug_", strlen(".debug_")) == 0) ||
+            (strncmp(section_name, ".ebss", strlen(".ebss")) == 0) ||
+            (strncmp(section_name, ".cinit", strlen(".cinit")) == 0)) {
+            uint8_t *data = NULL; uint32_t size = 0;
+
+            if(strncmp(section_name, ".debug_", strlen(".debug_")) == 0) {
+                size = sechdr.i32Size;
+                data = malloc(size);
+                
+                dw_accessData->section[dw_accessData->section_num].name = malloc(section_name_length);
+                dw_accessData->section[dw_accessData->section_num].addr = 0x0000;
+                dw_accessData->section[dw_accessData->section_num].size = size;
+                dw_accessData->section[dw_accessData->section_num].data = data;
+                memcpy(dw_accessData->section[dw_accessData->section_num].name, section_name, section_name_length);
+                dw_accessData->section_num++;
+            } else if(strncmp(section_name, ".ebss", strlen(".ebss")) == 0) {
+                size = sechdr.i32Size*2;
+                data = malloc(size);
+                
+                initSec_p->addr = sechdr.i32VAddr;
+                initSec_p->size = size;
+                initSec_p->data = data;
+            } else if(strncmp(section_name, ".cinit", strlen(".cinit")) == 0) {
+                size = sechdr.i32Size*2;
+                data = malloc(size);
+                
+                cinitSec.addr = sechdr.i32VAddr;
+                cinitSec.size = size;
+                cinitSec.data = data;
+            }
 
             long pos = ftell(fp);
             if(pos == -1) {
@@ -141,8 +166,8 @@ int dwarf_coff_init(const char *path,
                 printf("[%s-%s:%d] fseek() %s.\n", __FILE__, __func__, __LINE__, strerror(errno));
                 goto FREE;
             }
-            res = fread(dw_accessData->section[dw_accessData->section_num - 1].data, 1, sechdr.i32Size, fp);
-            if(res != sechdr.i32Size) {
+            res = fread(data, 1, size, fp);
+            if(res != size) {
                 printf("[%s-%s:%d] fread() %s.\n", __FILE__, __func__, __LINE__, strerror(errno));
                 goto FREE;
             }
@@ -153,20 +178,34 @@ int dwarf_coff_init(const char *path,
         }
     }
 
-    if(dw_accessData->section_num <= 0) {
-        printf("[%s-%s:%d] Unsupported File Type (%x).\n", __FILE__, __func__, __LINE__, filehdr.u16Version);
-        goto FREE;
+    if(initSec_p->data == NULL) {
+        goto FREE2;
     }
 
-    Dwarf_Obj_Access_Interface_a dw_interface = {dw_accessData, &dw_methods};
-    if(dwarf_object_init_b(&dw_interface, NULL, NULL, DW_GROUPNUMBER_ANY, ret_dbg, error) == DW_DLV_OK)
-    {
-        *dw_accessData_p = dw_accessData;
+    if(cinitSec.data == NULL) {
+        goto FREE3;
+    }
+
+    if(dw_accessData->section_num <= 0) {
+        printf("[%s-%s:%d] Unsupported File Type (%x).\n", __FILE__, __func__, __LINE__, filehdr.u16Version);
+        goto FREE3;
+    }
+
+    dw_accessInterface->ai_object = dw_accessData;
+    dw_accessInterface->ai_methods = &dw_methods;
+    if(dwarf_object_init_b(dw_accessInterface, NULL, NULL, 
+        DW_GROUPNUMBER_ANY, ret_dbg, error) == DW_DLV_OK) {
+        // 解析cinit到ebss
+
         fclose(fp);
-        
+        free(cinitSec.data);
         return DW_DLV_OK;
     }
 
+FREE3:
+    free(cinitSec.data);
+FREE2:
+    free(initSec_p->data);
 FREE:
     dwarf_coff_release(dw_accessData);
 
@@ -174,23 +213,6 @@ CLOSE:
     fclose(fp);
 
     return DW_DLV_ERROR;
-}
-
-void dwarf_coff_deinit(Dwarf_Debug dw_dbg, 
-    Dwarf_Obj_Access_Data *dw_accessData)
-{
-    dwarf_object_finish(dw_dbg);
-
-    if(dw_accessData == NULL) return;
-
-    for(int i = 0; i < dw_accessData->section_num; i++)
-    {
-        free(dw_accessData->section[i].name);
-        free(dw_accessData->section[i].data);
-    }
-
-    free(dw_accessData->section);
-    free(dw_accessData);
 }
 
 void dwarf_coff_release(Dwarf_Obj_Access_Data *dw_accessData)
@@ -205,4 +227,11 @@ void dwarf_coff_release(Dwarf_Obj_Access_Data *dw_accessData)
 
     free(dw_accessData->section);
     free(dw_accessData);
+}
+
+void dwarf_coff_deinit(Dwarf_Debug dw_dbg, 
+    Dwarf_Obj_Access_Data *dw_accessData)
+{
+    dwarf_object_finish(dw_dbg);
+    dwarf_coff_release(dw_accessData);
 }

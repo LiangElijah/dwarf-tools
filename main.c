@@ -15,7 +15,8 @@ int main(int argc, char *argv[])
 
     Dwarf_Debug dbg = NULL;
     Dwarf_Error error = NULL;
-    Dwarf_Obj_Access_Data *dw_accessData = NULL;
+    Dwarf_Obj initSec = {0};
+    Dwarf_Obj_Access_Interface_a dw_accessInterface = {0};
     st_dieNode_t *entry = NULL;
     st_str_t str = {0};
     st_addr_t addr = {0};
@@ -83,12 +84,10 @@ int main(int argc, char *argv[])
     printf("Argument Got: -i %s -v %s\n\n", cinput, cvariant);
 
     /* Do Something Here */
-    res = dwarf_elf_init(cinput, &dbg, &error);
-    if(res != DW_DLV_OK)
-    {
-        res = dwarf_coff_init(cinput, &dw_accessData, &dbg, &error);
-        if(res != DW_DLV_OK)
-        {
+    res = dwarf_elf_init(cinput, &initSec, &dbg, &error);
+    if(res != DW_DLV_OK) {
+        res = dwarf_coff_init(cinput, &dw_accessInterface, &initSec, &dbg, &error);
+        if(res != DW_DLV_OK) {
             printf("file format err\r\n");
             return -1;
         }
@@ -112,7 +111,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    res = dwarf_addr_cal(entry, &str, &addr);
+    res = dwarf_addr_cal(&initSec, entry, &str, &addr);
     if(res == 0) {
         dwarf_print_addr(&addr);
 		printf("\r\n");

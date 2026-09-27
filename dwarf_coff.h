@@ -11,6 +11,7 @@
 #include "libdwarf.h"
 
 #include "dwarf_method.h"
+#include "elf.h"
 
 // 文件头
 typedef struct st_filehdr {
@@ -74,8 +75,9 @@ typedef struct st_syment {
   int8_t   i8NumAux;            // 符号附加记录数
 } __attribute__((packed)) st_syment_t;
 
-int dwarf_coff_init(const char *path,
-    Dwarf_Obj_Access_Data **dw_accessData_p, 
+int dwarf_coff_init(const char *path, 
+    Dwarf_Obj_Access_Interface_a *dw_accessInterface,
+    Dwarf_Obj *initSec_p,
     Dwarf_Debug *ret_dbg, 
     Dwarf_Error *error);
 void dwarf_coff_deinit(Dwarf_Debug dw_dbg, 
