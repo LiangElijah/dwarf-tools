@@ -294,7 +294,7 @@ readelf32shdr(FILE *f, Fhdr *fp)
 
 	fp->name = sh.name;
 	fp->offset = sh.offset;
-	fp->size = sh.size;
+	fp->size = sh.size*2;
 	fp->addr = sh.addr;
 
 	// if (verbose)

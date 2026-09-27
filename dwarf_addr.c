@@ -39,15 +39,14 @@ int dwarf_addr_cal(Dwarf_Obj *initSec_p,
                                     found = 1; break;
                                 }
                             }
-                            if(found == 1) {
-                                break;
-                            } else {
-                                printf("[%s-%s:%d] Unfound variable.\n", 
-                                    __FILE__, __func__, __LINE__);
-                                return AddrStatus_NOFOUND;
-                            }
+                            if(found == 1) break;
                         }
                     }
+                }
+                if(found == 0) {
+                    printf("[%s-%s:%d] Unfound variable.\n", 
+                        __FILE__, __func__, __LINE__);
+                    return AddrStatus_NOFOUND;
                 }
             }
             
@@ -68,15 +67,15 @@ int dwarf_addr_cal(Dwarf_Obj *initSec_p,
                         byteSize = 2;
                     }
                     
-                    if((address >= initSec_p->addr) && 
-                        (((address - initSec_p->addr)*byteSize + 4) < initSec_p->size)) {
-                        memcpy(&address, initSec_p->data + 
-                            (address - initSec_p->addr)*byteSize, 4);
-                    } else {
-                        printf("[%s-%s:%d] Over Init Size.\n", 
-                            __FILE__, __func__, __LINE__);
-                        return AddrStatus_OverSize;
-                    }
+                    // if((address >= initSec_p->addr) && 
+                    //     (((address - initSec_p->addr)*byteSize + 4) < initSec_p->size)) {
+                    //     memcpy(&address, initSec_p->data + 
+                    //         (address - initSec_p->addr)*byteSize, 4);
+                    // } else {
+                    //     printf("[%s-%s:%d] Over Init Size.\n", 
+                    //         __FILE__, __func__, __LINE__);
+                    //     return AddrStatus_OverSize;
+                    // }
                 }
             } else {
                 printf("[%s-%s:%d] Unfound Variable Type.\n", 
