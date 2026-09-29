@@ -1,8 +1,6 @@
 #define USED(x) if(x){}else{}
 #define nelem(x) (sizeof(x)/sizeof((x)[0]))
 
-extern char *machinestr[];
-
 #define EI_NIDENT 16
 
 enum {
@@ -113,6 +111,30 @@ typedef struct {
 	uint64_t	memsz;
 	uint64_t	align;
 } Elf64_Phdr;
+
+/*
+ * ELF32 Symbol ent
+ */
+typedef struct {
+    uint32_t      name;
+    uint32_t      value;
+    uint32_t      size;
+    unsigned char info;
+    unsigned char other;
+    uint16_t      shndx;
+} Elf32_Sym;
+
+/*
+ * ELF64 Symbol ent
+ */
+typedef struct {
+    uint32_t      name;
+    unsigned char info;
+    unsigned char other;
+    uint16_t      shndx;
+    uint64_t      value;
+    uint64_t      size;
+} Elf64_Sym;
 
 /*
  * Object file type
@@ -363,7 +385,7 @@ enum {
  * File class
  */
 enum {
-	ELFCLASSNONE	= 0,	/* Invalid class */
+	ELFCLASSNONE= 0,	/* Invalid class */
 	ELFCLASS32	= 1,	/* 32-bit objects */
 	ELFCLASS64	= 2,	/* 64-bit objects */
 };
