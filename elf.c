@@ -630,10 +630,10 @@ readelfsect(FILE *f, char *name, Fhdr *fp)
 static int
 readelfstrtab(FILE *f, Fhdr *fp)
 {
-	fp->strtabsize = fp->size;
 	fp->strtab = readelfsect(f, ".strtab", fp);
 	if (fp->strtab == NULL)
 		return -1;
+	fp->strtabsize = fp->size;
 	
 	return 0;
 }
@@ -644,11 +644,11 @@ readelfstrtab(FILE *f, Fhdr *fp)
 static int
 readelfsymtab(FILE *f, Fhdr *fp)
 {
-	fp->symtabsize = fp->size;
 	fp->symtab = readelfsect(f, ".symtab", fp);
 	if (fp->symtab == NULL)
 		return -1;
-	
+	fp->symtabsize = fp->size;
+
 	return 0;
 }
 
@@ -733,12 +733,13 @@ readelfsym(FILE *f, char *name, Fhdr *fp)
 			return -1;
 		i += num;
 		n = getstr(fp, fp->symname);
-		printf("%s %d %d %d\r\n", n, fp->symname, num, i);
 		if (n == NULL)
 			return -1;
 		if (strcmp(n, name) == 0)
 			return 0;
 	}
+
+	return -1;
 }
 
 /*
