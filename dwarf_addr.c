@@ -66,16 +66,15 @@ int dwarf_addr_cal(Dwarf_Obj *initSec_p,
                     if(type_node->un.type.byte_width == 16) {
                         byteSize = 2;
                     }
-                    
-                    // if((address >= initSec_p->addr) && 
-                    //     (((address - initSec_p->addr)*byteSize + 4) < initSec_p->size)) {
-                    //     memcpy(&address, initSec_p->data + 
-                    //         (address - initSec_p->addr)*byteSize, 4);
-                    // } else {
-                    //     printf("[%s-%s:%d] Over Init Size.\n", 
-                    //         __FILE__, __func__, __LINE__);
-                    //     return AddrStatus_OverSize;
-                    // }
+                    if((address >= initSec_p->addr) && 
+                        (address + byteSize - initSec_p->addr) <= initSec_p->size/2) {
+                        memcpy(&address, (uint16_t *)initSec_p->data + 
+                            (address - initSec_p->addr), 4);
+                    } else {
+                        printf("[%s-%s:%d] Over Init Size.\n", 
+                            __FILE__, __func__, __LINE__);
+                        return AddrStatus_OverSize;
+                    }
                 }
             } else {
                 printf("[%s-%s:%d] Unfound Variable Type.\n", 

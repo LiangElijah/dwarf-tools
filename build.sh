@@ -4,7 +4,7 @@
 # cd build
 # cmake .. -DCMAKE_INSTALL_PREFIX=../output
 
-gcc main.c elf.c beget.c leget.c dwarf_coff.c dwarf_elf.c dwarf_die.c dwarf_method.c dwarf_str.c dwarf_addr.c -o main -ID:/WorkSpace/Git/libdwarf/output/include -ldwarf-static -LD:/WorkSpace/Git/libdwarf/output/lib -DLIBDWARF_STATIC -lstdc++
+gcc main.c elf.c beget.c leget.c dwarf_coff.c dwarf_elf.c dwarf_die.c dwarf_method.c dwarf_str.c dwarf_addr.c -o main -IC:/WorkSpace/ByteStudio/libdwarf/output/include -ldwarf-static -LC:/WorkSpace/ByteStudio/libdwarf/output/lib -DLIBDWARF_STATIC -lstdc++
 
 : << 'EOF'
 
