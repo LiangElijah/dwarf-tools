@@ -140,7 +140,10 @@ void dwarf_elf_deinit(Dwarf_Debug dw_dbg)
 
 void dwarf_elf_decompress_none(const uint16_t *src, uint16_t *dst)
 {
-
+    const uint16_t *count_p = src + 1;
+    uint16_t count = *((uint32_t *)count_p); 
+    count_p += 2;
+    memcpy(dst, count_p, count*2);
 }
 
 void dwarf_elf_decompress_lzss(const uint16_t *src, uint16_t *dst)
@@ -191,5 +194,8 @@ void dwarf_elf_decompress_lzss(const uint16_t *src, uint16_t *dst)
 
 void dwarf_elf_zero_init(const uint16_t *src, uint16_t *dst)
 {
-
+    const uint16_t *count_p = src + 1;
+    uint16_t count = *((uint32_t *)count_p); 
+    count_p += 2;
+    memset(dst, 0, count*2);
 }
